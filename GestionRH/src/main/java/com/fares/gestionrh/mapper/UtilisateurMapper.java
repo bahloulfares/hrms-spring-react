@@ -1,0 +1,117 @@
+package com.fares.gestionrh.mapper;
+import com.fares.gestionrh.dto.auth.RegisterRequest;
+import com.fares.gestionrh.dto.utilisateur.CreateUtilisateurRequest;
+import com.fares.gestionrh.dto.utilisateur.UpdateUtilisateurRequest;
+import com.fares.gestionrh.dto.utilisateur.UtilisateurDTO;
+import com.fares.gestionrh.entity.Role;
+import com.fares.gestionrh.entity.Utilisateur;
+import org.springframework.stereotype.Component;
+import java.util.HashSet;
+import java.util.Set;
+@Component
+public class UtilisateurMapper {
+    /**
+     * Convertit une entité Utilisateur en DTO
+     * ⚠️ Ne retourne JAMAIS le mot de passe
+     */
+    public UtilisateurDTO toDTO(Utilisateur utilisateur) {
+        if (utilisateur == null) {
+            return null;
+        }
+        return UtilisateurDTO.builder()
+                .id(utilisateur.getId())
+                .email(utilisateur.getEmail())
+                .nom(utilisateur.getNom())
+                .prenom(utilisateur.getPrenom())
+                .nomComplet(utilisateur.getNomComplet())
+                .telephone(utilisateur.getTelephone())
+                .poste(utilisateur.getPoste())
+                .departement(utilisateur.getDepartement())
+                .roles(utilisateur.getRoles())
+                .actif(utilisateur.getActif())
+                .dateCreation(utilisateur.getDateCreation())
+                .dateModification(utilisateur.getDateModification())
+                .build();
+    }
+    /**
+     * Convertit un CreateUtilisateurRequest en entité
+     * ⚠️ Le mot de passe doit être encodé APRÈS cette conversion
+     */
+    public Utilisateur toEntity(CreateUtilisateurRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return Utilisateur.builder()
+                .email(request.getEmail())
+                .motDePasse(request.getMotDePasse()) // Sera encodé dans le service
+                .nom(request.getNom())
+                .prenom(request.getPrenom())
+                .telephone(request.getTelephone())
+                .poste(request.getPoste())
+                .departement(request.getDepartement())
+                .roles(request.getRoles() != null ? request.getRoles() : getDefaultRoles())
+                .actif(request.getActif() != null ? request.getActif() : true)
+                .build();
+    }
+    /**
+     * Convertit un RegisterRequest en entité
+     * ⚠️ Le mot de passe doit être encodé APRÈS cette conversion
+     */
+    public Utilisateur toEntity(RegisterRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return Utilisateur.builder()
+                .email(request.getEmail())
+                .motDePasse(request.getMotDePasse()) // Sera encodé dans le service
+                .nom(request.getNom())
+                .prenom(request.getPrenom())
+                .telephone(request.getTelephone())
+                .poste(request.getPoste())
+                .departement(request.getDepartement())
+                .roles(request.getRoles() != null ? request.getRoles() : getDefaultRoles())
+                .actif(true) // Toujours actif lors de l'inscription
+                .build();
+    }
+    /**
+     * Met à jour une entité existante avec les données d'un UpdateUtilisateurRequest
+     * ⚠️ Ne met à jour que les champs non-null
+     */
+    public void updateEntity(Utilisateur utilisateur, UpdateUtilisateurRequest request) {
+        if (utilisateur == null || request == null) {
+            return;
+        }
+        if (request.getEmail() != null) {
+            utilisateur.setEmail(request.getEmail());
+        }
+        if (request.getNom() != null) {
+            utilisateur.setNom(request.getNom());
+        }
+        if (request.getPrenom() != null) {
+            utilisateur.setPrenom(request.getPrenom());
+        }
+        if (request.getTelephone() != null) {
+            utilisateur.setTelephone(request.getTelephone());
+        }
+        if (request.getPoste() != null) {
+            utilisateur.setPoste(request.getPoste());
+        }
+        if (request.getDepartement() != null) {
+            utilisateur.setDepartement(request.getDepartement());
+        }
+        if (request.getRoles() != null && !request.getRoles().isEmpty()) {
+            utilisateur.setRoles(request.getRoles());
+        }
+        if (request.getActif() != null) {
+            utilisateur.setActif(request.getActif());
+        }
+    }
+    /**
+     * Retourne les rôles par défaut pour un nouvel utilisateur
+     */
+    private Set<Role> getDefaultRoles() {
+        Set<Role> roles = new HashSet<>();
+        roles.add(Role.EMPLOYE);
+        return roles;
+    }
+}
