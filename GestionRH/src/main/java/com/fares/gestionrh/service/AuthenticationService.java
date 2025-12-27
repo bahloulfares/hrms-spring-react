@@ -39,4 +39,14 @@ public class AuthenticationService {
 
         return new LoginResponse(token, user.getEmail(), user.getNomComplet(), user.getRoles());
     }
+
+    public LoginResponse getCurrentUser() {
+        String email = (String) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
+        Utilisateur user = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new AuthenticationException("Utilisateur non trouvé"));
+
+        // On ne renvoie pas de token ici, car il est dans le cookie
+        return new LoginResponse(null, user.getEmail(), user.getNomComplet(), user.getRoles());
+    }
 }

@@ -31,38 +31,38 @@ public class CongeController {
     private final CongeService congeService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ROLE_EMPLOYEE', 'ROLE_MANAGER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<CongeResponse> creerDemande(@Valid @RequestBody CongeRequest request, Authentication auth) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(congeService.creerDemande(request, auth.getName()));
     }
 
     @GetMapping("/mes-conges")
-    @PreAuthorize("hasAnyRole('ROLE_EMPLOYEE', 'ROLE_MANAGER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<List<CongeResponse>> getMesConges(Authentication auth) {
         return ResponseEntity.ok(congeService.getMesConges(auth.getName()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_EMPLOYEE', 'ROLE_MANAGER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<CongeResponse> getCongeById(@PathVariable Long id) {
         return ResponseEntity.ok(congeService.getCongeById(id));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_EMPLOYEE', 'ROLE_MANAGER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<CongeResponse> annulerDemande(@PathVariable Long id, Authentication auth) {
         return ResponseEntity.ok(congeService.annulerDemande(id, auth.getName()));
     }
 
     @GetMapping("/en-attente")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     public ResponseEntity<List<CongeResponse>> getDemandesEnAttente() {
         return ResponseEntity.ok(congeService.getDemandesEnAttente());
     }
 
     @PutMapping("/{id}/valider")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     public ResponseEntity<CongeResponse> validerDemande(@PathVariable Long id,
             @Valid @RequestBody ValidationCongeRequest request,
             Authentication auth) {
@@ -70,7 +70,7 @@ public class CongeController {
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<CongeResponse>> getAllConges() {
         return ResponseEntity.ok(congeService.getAllConges());
     }

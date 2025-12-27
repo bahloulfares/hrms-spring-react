@@ -11,8 +11,8 @@ public class GestionRhApplication {
         System.out.println("\n" +
                 "╔══════════════════════════════════════════════════════╗\n" +
                 "║   🚀 Application Gestion Congés Démarrée avec Succès ║\n" +
-                "║   📍 URL: http://localhost:8080                      ║\n" +
-                "║   📖 Docs: http://localhost:8080/api/auth/test      ║\n" +
+                "║   📍 URL: http://localhost:8088                      ║\n" +
+                "║   📖 Docs: http://localhost:8088/api/auth/test      ║\n" +
                 "╚══════════════════════════════════════════════════════╝\n"
         );
     }
