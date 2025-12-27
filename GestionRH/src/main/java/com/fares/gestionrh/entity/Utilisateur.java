@@ -1,14 +1,14 @@
 package com.fares.gestionrh.entity;
+
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+
 @Entity
 @Table(name = "utilisateurs")
 @Data
@@ -29,10 +29,18 @@ public class Utilisateur {
     private String prenom;
     @Column(length = 20)
     private String telephone;
-    @Column(length = 100)
-    private String poste;
-    @Column(length = 100)
-    private String departement;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "poste_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Poste poste;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "departement_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Departement departement;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "utilisateur_roles", joinColumns = @JoinColumn(name = "utilisateur_id"))
     @Enumerated(EnumType.STRING)
@@ -47,10 +55,12 @@ public class Utilisateur {
     private LocalDateTime dateCreation;
     @UpdateTimestamp
     private LocalDateTime dateModification;
+
     // Méthode utilitaire
     public String getNomComplet() {
         return prenom + " " + nom;
     }
+
     // Ajouter un rôle
     public void addRole(Role role) {
         if (this.roles == null) {

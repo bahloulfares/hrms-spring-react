@@ -64,4 +64,18 @@ public class AuthController {
     public ResponseEntity<String> test() {
         return ResponseEntity.ok("✅ API fonctionne !");
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from("token", "")
+                .httpOnly(true)
+                .secure(false) // Mettre à true en Production (HTTPS)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Strict")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        return ResponseEntity.ok().build();
+    }
 }

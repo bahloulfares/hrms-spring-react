@@ -1,4 +1,5 @@
 package com.fares.gestionrh.dto.utilisateur;
+
 import com.fares.gestionrh.entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -8,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.Set;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,9 +21,14 @@ public class UpdateUtilisateurRequest {
     private String nom;
     @Size(max = 100, message = "Le prénom ne peut pas dépasser 100 caractères")
     private String prenom;
-    @Pattern(regexp = "^[0-9]{10}$", message = "Le téléphone doit contenir 10 chiffres")
+    @Pattern(regexp = "^[0-9]{8}$", message = "Le téléphone doit contenir 8 chiffres")
     private String telephone;
+
+    @Size(min = 8, message = "Le mot de passe doit contenir au moins 8 caractères")
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$", message = "Le mot de passe doit contenir au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial")
+    private String motDePasse;
     @Size(max = 100, message = "Le poste ne peut pas dépasser 100 caractères")
+
     private String poste;
     @Size(max = 100, message = "Le département ne peut pas dépasser 100 caractères")
     private String departement;

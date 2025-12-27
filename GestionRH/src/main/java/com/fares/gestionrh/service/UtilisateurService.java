@@ -24,6 +24,7 @@ public class UtilisateurService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
+
     public UtilisateurDTO creerUtilisateur(CreateUtilisateurRequest request) {
         if (utilisateurRepository.existsByEmail(request.getEmail())) {
             throw new ConflictException("Email déjà utilisé");
@@ -54,5 +55,27 @@ public class UtilisateurService {
             throw new ResourceNotFoundException("Utilisateur", "id", id);
         }
         utilisateurRepository.deleteById(id);
+    }
+
+    @Transactional
+    public UtilisateurDTO updateUtilisateur(Long id,
+            com.fares.gestionrh.dto.utilisateur.UpdateUtilisateurRequest request) {
+        Utilisateur utilisateur = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+
+        if (request.getEmail() != null && !request.getEmail().equals(utilisateur.getEmail()) &&
+                utilisateurRepository.existsByEmail(request.getEmail())) {
+            throw new ConflictException("Email déjà utilisé");
+        }
+
+        // Utiliser le mapper pour tous les champs (y compris poste et département)
+        utilisateurMapper.updateEntity(utilisateur, request);
+
+        // Gérer le mot de passe si présent (car non géré par le mapper)
+        if (request.getMotDePasse() != null && !request.getMotDePasse().isBlank()) {
+            utilisateur.setMotDePasse(passwordEncoder.encode(request.getMotDePasse()));
+        }
+
+        return utilisateurMapper.toDTO(utilisateurRepository.save(utilisateur));
     }
 }

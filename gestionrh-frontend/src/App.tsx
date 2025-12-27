@@ -1,6 +1,10 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginForm } from './features/auth/components/LoginForm';
+import { DashboardLayout } from './components/layout/DashboardLayout';
+import { DepartmentsPage } from './features/departments/components/DepartmentsPage';
+import { JobsPage } from './features/jobs/components/JobsPage';
+import { EmployeesPage } from './features/employees/components/EmployeesPage';
 import { useAppSelector, useAppDispatch } from './store/hooks';
 
 import { checkAuth } from './features/auth/authSlice';
@@ -32,20 +36,21 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginForm />} />
 
-        {/* Protected Dashboard Route */}
+        {/* Protected Dashboard Routes */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <div className="p-8">
-                <h1 className="text-2xl font-bold">Bienvenue sur le Dashboard RH</h1>
-                <p className="mt-4">Vous êtes connecté de manière sécurisée.</p>
-              </div>
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<div className="p-4">Bienvenue sur votre tableau de bord RH. Sélectionnez un menu à gauche.</div>} />
+          <Route path="departments" element={<DepartmentsPage />} />
+          <Route path="jobs" element={<JobsPage />} />
+          <Route path="employees" element={<EmployeesPage />} />
+        </Route>
 
-        {/* Redirect root to dashboard (which will redirect to login if not auth) */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

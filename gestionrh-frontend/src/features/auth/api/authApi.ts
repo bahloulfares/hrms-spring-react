@@ -7,5 +7,7 @@ export const authApi = {
         return response.data;
     },
 
-    // Ajouter d'autres méthodes ici (logout, register, me...)
+    logout: async (): Promise<void> => {
+        await axiosClient.post('/auth/logout');
+    },
 };

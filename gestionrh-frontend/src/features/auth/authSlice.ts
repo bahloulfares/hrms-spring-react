@@ -51,11 +51,9 @@ export const checkAuth = createAsyncThunk('auth/checkAuth', async (_, { rejectWi
 });
 
 export const logoutUser = createAsyncThunk('auth/logout', async () => {
-    // Appel backend pour clear le cookie (optionnel mais recommandé)
-    // await axiosClient.post('/auth/logout'); 
-    // Pour l'instant on reset juste le state frontend, le cookie expirera
-    // Idéalement on devrait appeler un endpoint qui fait un setMaxAge(0) sur le cookie
+    await authApi.logout();
 });
+
 
 const authSlice = createSlice({
     name: 'auth',

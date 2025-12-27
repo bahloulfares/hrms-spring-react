@@ -1,4 +1,5 @@
 package com.fares.gestionrh.mapper;
+
 import com.fares.gestionrh.dto.auth.RegisterRequest;
 import com.fares.gestionrh.dto.utilisateur.CreateUtilisateurRequest;
 import com.fares.gestionrh.dto.utilisateur.UpdateUtilisateurRequest;
@@ -6,10 +7,17 @@ import com.fares.gestionrh.dto.utilisateur.UtilisateurDTO;
 import com.fares.gestionrh.entity.Role;
 import com.fares.gestionrh.entity.Utilisateur;
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
 import java.util.HashSet;
 import java.util.Set;
+
 @Component
+@RequiredArgsConstructor
 public class UtilisateurMapper {
+
+    private final com.fares.gestionrh.repository.PosteRepository posteRepository;
+    private final com.fares.gestionrh.repository.DepartementRepository departementRepository;
+
     /**
      * Convertit une entité Utilisateur en DTO
      * ⚠️ Ne retourne JAMAIS le mot de passe
@@ -25,14 +33,15 @@ public class UtilisateurMapper {
                 .prenom(utilisateur.getPrenom())
                 .nomComplet(utilisateur.getNomComplet())
                 .telephone(utilisateur.getTelephone())
-                .poste(utilisateur.getPoste())
-                .departement(utilisateur.getDepartement())
+                .poste(utilisateur.getPoste() != null ? utilisateur.getPoste().getTitre() : null)
+                .departement(utilisateur.getDepartement() != null ? utilisateur.getDepartement().getNom() : null)
                 .roles(utilisateur.getRoles())
                 .actif(utilisateur.getActif())
                 .dateCreation(utilisateur.getDateCreation())
                 .dateModification(utilisateur.getDateModification())
                 .build();
     }
+
     /**
      * Convertit un CreateUtilisateurRequest en entité
      * ⚠️ Le mot de passe doit être encodé APRÈS cette conversion
@@ -41,18 +50,31 @@ public class UtilisateurMapper {
         if (request == null) {
             return null;
         }
-        return Utilisateur.builder()
+
+        Utilisateur.UtilisateurBuilder builder = Utilisateur.builder()
                 .email(request.getEmail())
                 .motDePasse(request.getMotDePasse()) // Sera encodé dans le service
                 .nom(request.getNom())
                 .prenom(request.getPrenom())
                 .telephone(request.getTelephone())
-                .poste(request.getPoste())
-                .departement(request.getDepartement())
                 .roles(request.getRoles() != null ? request.getRoles() : getDefaultRoles())
-                .actif(request.getActif() != null ? request.getActif() : true)
-                .build();
+                .actif(request.getActif() != null ? request.getActif() : true);
+
+        if (request.getPoste() != null) {
+            // TODO: Gérer le cas où le poste n'existe pas (pour l'instant on ignore ou on
+            // cherche un match exact)
+            // Idéalement on devrait lever une exception ou créer le poste
+            // Ici on cherche par titre, sinon null.
+        }
+
+        if (request.getDepartement() != null) {
+            departementRepository.findByNom(request.getDepartement())
+                    .ifPresent(builder::departement);
+        }
+
+        return builder.build();
     }
+
     /**
      * Convertit un RegisterRequest en entité
      * ⚠️ Le mot de passe doit être encodé APRÈS cette conversion
@@ -61,20 +83,26 @@ public class UtilisateurMapper {
         if (request == null) {
             return null;
         }
-        return Utilisateur.builder()
+
+        Utilisateur.UtilisateurBuilder builder = Utilisateur.builder()
                 .email(request.getEmail())
-                .motDePasse(request.getMotDePasse()) // Sera encodé dans le service
+                .motDePasse(request.getMotDePasse())
                 .nom(request.getNom())
                 .prenom(request.getPrenom())
                 .telephone(request.getTelephone())
-                .poste(request.getPoste())
-                .departement(request.getDepartement())
                 .roles(request.getRoles() != null ? request.getRoles() : getDefaultRoles())
-                .actif(true) // Toujours actif lors de l'inscription
-                .build();
+                .actif(true);
+
+        if (request.getDepartement() != null) {
+            departementRepository.findByNom(request.getDepartement()).ifPresent(builder::departement);
+        }
+
+        return builder.build();
     }
+
     /**
-     * Met à jour une entité existante avec les données d'un UpdateUtilisateurRequest
+     * Met à jour une entité existante avec les données d'un
+     * UpdateUtilisateurRequest
      * ⚠️ Ne met à jour que les champs non-null
      */
     public void updateEntity(Utilisateur utilisateur, UpdateUtilisateurRequest request) {
@@ -94,10 +122,11 @@ public class UtilisateurMapper {
             utilisateur.setTelephone(request.getTelephone());
         }
         if (request.getPoste() != null) {
-            utilisateur.setPoste(request.getPoste());
+            posteRepository.findByTitre(request.getPoste()).ifPresent(utilisateur::setPoste);
         }
+
         if (request.getDepartement() != null) {
-            utilisateur.setDepartement(request.getDepartement());
+            departementRepository.findByNom(request.getDepartement()).ifPresent(utilisateur::setDepartement);
         }
         if (request.getRoles() != null && !request.getRoles().isEmpty()) {
             utilisateur.setRoles(request.getRoles());
@@ -106,6 +135,7 @@ public class UtilisateurMapper {
             utilisateur.setActif(request.getActif());
         }
     }
+
     /**
      * Retourne les rôles par défaut pour un nouvel utilisateur
      */
