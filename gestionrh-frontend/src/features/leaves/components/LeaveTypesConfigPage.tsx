@@ -86,11 +86,20 @@ export const LeaveTypesConfigPage = () => {
                             <h3 className="text-xl font-bold text-slate-900">{type.nom}</h3>
                         </div>
 
-                        <div className="flex items-center gap-3 py-4 px-5 bg-slate-50 rounded-2xl border border-slate-100/50">
-                            <Hash className="w-5 h-5 text-slate-400" />
-                            <div>
-                                <div className="text-2xl font-black text-slate-900 leading-tight">{type.joursParAn}</div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">jours par an</div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex items-center gap-3 py-4 px-5 bg-slate-50 rounded-2xl border border-slate-100/50">
+                                <Hash className="w-5 h-5 text-slate-400" />
+                                <div>
+                                    <div className="text-2xl font-black text-slate-900 leading-tight">{type.joursParAn}</div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">jours / an</div>
+                                </div>
+                            </div>
+                            <div className={`flex items-center gap-3 py-4 px-5 rounded-2xl border border-slate-100/50 ${type.compteWeekend ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                <Calendar className="w-5 h-5 opacity-40" />
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-tighter leading-tight">Calcul</div>
+                                    <div className="text-xs font-bold leading-none">{type.compteWeekend ? 'Calendaires' : 'Ouvrés'}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -119,7 +128,8 @@ const TypeCongeForm = ({ initialData, onSuccess }: { initialData: TypeConge | nu
         defaultValues: initialData || {
             nom: '',
             code: '',
-            joursParAn: 25
+            joursParAn: 25,
+            compteWeekend: false
         }
     });
 
@@ -171,6 +181,28 @@ const TypeCongeForm = ({ initialData, onSuccess }: { initialData: TypeConge | nu
                         {...register('joursParAn', { required: true, min: 1 })}
                         className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
                     />
+                </div>
+            </div>
+
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            Inclure les Weekends
+                        </label>
+                        <p className="text-xs text-slate-500 leading-relaxed max-w-[280px]">
+                            Si activé, les samedis et dimanches seront déduits du solde (ex: Maladie).
+                            Sinon, seuls les jours ouvrés comptent (ex: CP).
+                        </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            {...register('compteWeekend')}
+                            className="sr-only peer"
+                        />
+                        <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-6 after:transition-all peer-checked:bg-blue-600 transition-all shadow-inner"></div>
+                    </label>
                 </div>
             </div>
 

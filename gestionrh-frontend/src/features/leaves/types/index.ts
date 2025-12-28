@@ -5,6 +5,7 @@ export interface TypeConge {
     nom: string;
     code: string;
     joursParAn: number;
+    compteWeekend: boolean;
 }
 
 export interface SoldeConge {

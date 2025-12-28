@@ -49,14 +49,17 @@ public class CongeService {
         TypeConge typeConge = typeCongeRepository.findByCode(request.getType().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("TypeConge", "code", request.getType()));
 
-        long joursDemandes = ChronoUnit.DAYS.between(request.getDateDebut(), request.getDateFin()) + 1;
+        long joursDemandes = calculateNombreJours(request.getDateDebut(), request.getDateFin(),
+                typeConge.isCompteWeekend());
         int annee = request.getDateDebut().getYear();
 
         soldeCongeRepository.findByUtilisateurAndTypeCongeAndAnnee(employe, typeConge, annee)
                 .ifPresent(solde -> {
                     if (solde.getJoursRestants() < joursDemandes) {
-                        throw new BusinessException("Solde insuffisant pour ce type de congé ("
-                                + solde.getJoursRestants() + " jours restants)");
+                        throw new BusinessException(String.format(
+                                "Quota insuffisant pour le type '%s'. Il vous reste %.1f jours. " +
+                                        "Pour une durée plus longue, veuillez diviser votre demande en utilisant un autre type (ex: Congés Payés).",
+                                typeConge.getNom(), solde.getJoursRestants()));
                     }
                 });
         // Note: Si aucun solde n'est trouvé, on considère qu'il n'y a pas encore de
@@ -280,5 +283,22 @@ public class CongeService {
         if (!chevauchements.isEmpty()) {
             throw new BusinessException("Chevauchement avec un congé existant");
         }
+    }
+
+    public long calculateNombreJours(LocalDate debut, LocalDate fin, boolean compteWeekend) {
+        if (compteWeekend) {
+            return ChronoUnit.DAYS.between(debut, fin) + 1;
+        }
+
+        long count = 0;
+        LocalDate current = debut;
+        while (!current.isAfter(fin)) {
+            java.time.DayOfWeek dow = current.getDayOfWeek();
+            if (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY) {
+                count++;
+            }
+            current = current.plusDays(1);
+        }
+        return count;
     }
 }

@@ -26,4 +26,8 @@ public class TypeConge {
 
     @Column(nullable = false)
     private Integer joursParAn;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean compteWeekend = false;
 }

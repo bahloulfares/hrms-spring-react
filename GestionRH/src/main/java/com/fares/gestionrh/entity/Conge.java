@@ -60,9 +60,24 @@ public class Conge {
 
     // Méthode utilitaire pour calculer le nombre de jours
     public long getNombreJours() {
-        if (dateDebut != null && dateFin != null) {
+        if (dateDebut == null || dateFin == null || type == null) {
+            return 0;
+        }
+
+        if (type.isCompteWeekend()) {
             return ChronoUnit.DAYS.between(dateDebut, dateFin) + 1;
         }
-        return 0;
+
+        // Calcul des jours ouvrés (hors Sat/Sun)
+        long count = 0;
+        LocalDate current = dateDebut;
+        while (!current.isAfter(dateFin)) {
+            java.time.DayOfWeek dow = current.getDayOfWeek();
+            if (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY) {
+                count++;
+            }
+            current = current.plusDays(1);
+        }
+        return count;
     }
 }
