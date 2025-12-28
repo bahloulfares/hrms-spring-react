@@ -20,7 +20,7 @@ public class EmployeController {
     private final UtilisateurService utilisateurService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<UtilisateurDTO> createEmploye(@Valid @RequestBody CreateUtilisateurRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(utilisateurService.creerUtilisateur(request));
@@ -39,14 +39,14 @@ public class EmployeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<UtilisateurDTO> updateEmploye(@PathVariable Long id,
             @Valid @RequestBody com.fares.gestionrh.dto.utilisateur.UpdateUtilisateurRequest request) {
         return ResponseEntity.ok(utilisateurService.updateUtilisateur(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<Void> deleteEmploye(@PathVariable Long id) {
         utilisateurService.deleteUtilisateur(id);
         return ResponseEntity.noContent().build();

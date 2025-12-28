@@ -4,7 +4,7 @@ import type { CreateEmployeeRequest, Role, Employee } from '../types';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { createEmployee, updateEmployee } from '../api';
 import { getDepartements } from '../../departments/api';
-import { getPostes } from '../../jobs/api';
+import { getPostesByDepartement } from '../../jobs/api';
 
 interface EmployeeFormProps {
     onSuccess: () => void;
@@ -12,8 +12,10 @@ interface EmployeeFormProps {
 }
 
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialData }) => {
-    const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateEmployeeRequest>();
+    const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<CreateEmployeeRequest>();
     const queryClient = useQueryClient();
+
+    const selectedDepartementName = watch('departement');
 
     // Reset form when initialData changes
     useEffect(() => {
@@ -23,11 +25,10 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialDa
                 prenom: initialData.prenom,
                 email: initialData.email,
                 telephone: initialData.telephone,
-                // Map strings back to form values if needed
-                // roles: initialData.roles, // Handled below
+                departement: initialData.departement,
+                poste: initialData.poste,
+                roles: initialData.roles
             });
-            // We might need to handle Selects manually if values don't match exactly names vs IDs
-            // Assuming backend returns names for poste/department as string in Employee type
         } else {
             reset({
                 nom: '', prenom: '', email: '', telephone: '', motDePasse: '', roles: []
@@ -36,7 +37,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialDa
     }, [initialData, reset]);
 
     const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: getDepartements });
-    const { data: postes } = useQuery({ queryKey: ['postes'], queryFn: getPostes });
+
+    // Solve ID of selected department to fetch related jobs
+    const selectedDeptId = departements?.find(d => d.nom === selectedDepartementName)?.id;
+
+    const { data: filteredPostes, isLoading: isLoadingPostes } = useQuery({
+        queryKey: ['postes', selectedDeptId],
+        queryFn: () => getPostesByDepartement(selectedDeptId!),
+        enabled: !!selectedDeptId
+    });
 
     const createMutation = useMutation({
         mutationFn: createEmployee,
@@ -130,20 +139,41 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialDa
                 {errors.motDePasse && <p className="text-red-500 text-xs">{errors.motDePasse.message}</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label htmlFor="departement" className="block text-sm font-medium text-gray-700">Département</label>
-                    <select id="departement" {...register('departement')} defaultValue={initialData?.departement || ""} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2">
-                        <option value="">Aucun</option>
-                        {departements?.map(d => <option key={d.id} value={d.nom}>{d.nom}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label htmlFor="poste" className="block text-sm font-medium text-gray-700">Poste</label>
-                    <select id="poste" {...register('poste')} defaultValue={initialData?.poste || ""} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2">
-                        <option value="">Aucun</option>
-                        {postes?.map(p => <option key={p.id} value={p.titre}>{p.titre}</option>)}
-                    </select>
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Affectation Professionnelle</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="departement" className="block text-sm font-medium text-gray-700">Département</label>
+                        <select
+                            id="departement"
+                            {...register('departement')}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-white focus:ring-blue-500 focus:border-blue-500"
+                            onChange={(e) => {
+                                register('departement').onChange(e);
+                                setValue('poste', ''); // Reset poste when department changes
+                            }}
+                        >
+                            <option value="">Sélectionner un département</option>
+                            {departements?.map(d => <option key={d.id} value={d.nom}>{d.nom}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="poste" className="block text-sm font-medium text-gray-700">
+                            Poste {isLoadingPostes && <span className="text-xs text-blue-500 animate-pulse ml-2">(Chargement...)</span>}
+                        </label>
+                        <select
+                            id="poste"
+                            {...register('poste')}
+                            disabled={!selectedDeptId || isLoadingPostes}
+                            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-white focus:ring-blue-500 focus:border-blue-500 ${(!selectedDeptId || isLoadingPostes) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        >
+                            <option value="">{selectedDeptId ? 'Sélectionner un poste' : 'Choisir un département d\'abord'}</option>
+                            {filteredPostes?.map(p => <option key={p.id} value={p.titre}>{p.titre}</option>)}
+                        </select>
+                        {!selectedDeptId && !isLoadingPostes && (
+                            <p className="text-[10px] text-gray-500 mt-1 italic">Veuillez d'abord sélectionner un département.</p>
+                        )}
+                    </div>
                 </div>
             </div>
 

@@ -61,10 +61,8 @@ public class UtilisateurMapper {
                 .actif(request.getActif() != null ? request.getActif() : true);
 
         if (request.getPoste() != null) {
-            // TODO: Gérer le cas où le poste n'existe pas (pour l'instant on ignore ou on
-            // cherche un match exact)
-            // Idéalement on devrait lever une exception ou créer le poste
-            // Ici on cherche par titre, sinon null.
+            posteRepository.findByTitre(request.getPoste())
+                    .ifPresent(builder::poste);
         }
 
         if (request.getDepartement() != null) {
@@ -92,6 +90,10 @@ public class UtilisateurMapper {
                 .telephone(request.getTelephone())
                 .roles(request.getRoles() != null ? request.getRoles() : getDefaultRoles())
                 .actif(true);
+
+        if (request.getPoste() != null) {
+            posteRepository.findByTitre(request.getPoste()).ifPresent(builder::poste);
+        }
 
         if (request.getDepartement() != null) {
             departementRepository.findByNom(request.getDepartement()).ifPresent(builder::departement);

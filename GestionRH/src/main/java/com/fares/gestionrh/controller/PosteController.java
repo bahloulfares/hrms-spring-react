@@ -22,7 +22,7 @@ public class PosteController {
     private final PosteService posteService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<PosteDTO> createPoste(@Valid @RequestBody CreatePosteRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(posteService.createPoste(request));
@@ -47,13 +47,13 @@ public class PosteController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<PosteDTO> updatePoste(@PathVariable Long id, @Valid @RequestBody UpdatePosteRequest request) {
         return ResponseEntity.ok(posteService.updatePoste(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<Void> deletePoste(@PathVariable Long id) {
         posteService.deletePoste(id);
         return ResponseEntity.noContent().build();

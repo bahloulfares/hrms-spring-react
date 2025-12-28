@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.fares.gestionrh.entity.AffectationHistory;
+import com.fares.gestionrh.repository.AffectationHistoryRepository;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +25,7 @@ public class UtilisateurService {
     private final UtilisateurRepository utilisateurRepository;
     private final UtilisateurMapper utilisateurMapper;
     private final PasswordEncoder passwordEncoder;
+    private final AffectationHistoryRepository historyRepository;
 
     @Transactional
 
@@ -68,8 +72,34 @@ public class UtilisateurService {
             throw new ConflictException("Email déjà utilisé");
         }
 
+        // Sauvegarder les anciennes valeurs pour l'historique
+        String oldDept = utilisateur.getDepartement() != null ? utilisateur.getDepartement().getNom() : null;
+        String oldPoste = utilisateur.getPoste() != null ? utilisateur.getPoste().getTitre() : null;
+
         // Utiliser le mapper pour tous les champs (y compris poste et département)
         utilisateurMapper.updateEntity(utilisateur, request);
+
+        // Récupérer les nouvelles valeurs après mapping
+        String newDept = utilisateur.getDepartement() != null ? utilisateur.getDepartement().getNom() : null;
+        String newPoste = utilisateur.getPoste() != null ? utilisateur.getPoste().getTitre() : null;
+
+        // Si changement, enregistrer dans l'historique
+        boolean deptChanged = (oldDept == null && newDept != null) || (oldDept != null && !oldDept.equals(newDept));
+        boolean posteChanged = (oldPoste == null && newPoste != null)
+                || (oldPoste != null && !oldPoste.equals(newPoste));
+
+        if (deptChanged || posteChanged) {
+            String modifiePar = SecurityContextHolder.getContext().getAuthentication().getName();
+            AffectationHistory history = AffectationHistory.builder()
+                    .utilisateur(utilisateur)
+                    .oldDepartement(oldDept)
+                    .newDepartement(newDept)
+                    .oldPoste(oldPoste)
+                    .newPoste(newPoste)
+                    .modifiePar(modifiePar)
+                    .build();
+            historyRepository.save(history);
+        }
 
         // Gérer le mot de passe si présent (car non géré par le mapper)
         if (request.getMotDePasse() != null && !request.getMotDePasse().isBlank()) {

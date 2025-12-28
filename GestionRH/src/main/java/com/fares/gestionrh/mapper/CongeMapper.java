@@ -5,16 +5,24 @@ import com.fares.gestionrh.dto.conge.CongeResponse;
 import com.fares.gestionrh.entity.Conge;
 import com.fares.gestionrh.entity.TypeConge;
 import com.fares.gestionrh.entity.Utilisateur;
+import com.fares.gestionrh.repository.TypeCongeRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class CongeMapper {
 
+    private final TypeCongeRepository typeCongeRepository;
+
     public Conge toEntity(CongeRequest dto, Utilisateur employe) {
+        TypeConge type = typeCongeRepository.findByCode(dto.getType().toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Type de congé non trouvé: " + dto.getType()));
+
         return Conge.builder()
                 .dateDebut(dto.getDateDebut())
                 .dateFin(dto.getDateFin())
-                .type(TypeConge.valueOf(dto.getType().toUpperCase()))
+                .type(type)
                 .motif(dto.getMotif())
                 .employe(employe)
                 .build();
@@ -25,7 +33,7 @@ public class CongeMapper {
                 .id(entity.getId())
                 .dateDebut(entity.getDateDebut())
                 .dateFin(entity.getDateFin())
-                .type(entity.getType().name())
+                .type(entity.getType().getCode())
                 .statut(entity.getStatut().name())
                 .motif(entity.getMotif())
                 .commentaireValidation(entity.getCommentaireValidation())

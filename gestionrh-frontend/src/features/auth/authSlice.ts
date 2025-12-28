@@ -26,6 +26,11 @@ export const loginUser = createAsyncThunk(
             return {
                 email: response.email,
                 nomComplet: response.nomComplet,
+                prenom: response.prenom,
+                nom: response.nom,
+                telephone: response.telephone,
+                departement: response.departement,
+                poste: response.poste,
                 roles: response.roles,
                 token: '', // Token is in cookie now
             } as User;
@@ -42,6 +47,11 @@ export const checkAuth = createAsyncThunk('auth/checkAuth', async (_, { rejectWi
         return {
             email: response.data.email,
             nomComplet: response.data.nomComplet,
+            prenom: response.data.prenom,
+            nom: response.data.nom,
+            telephone: response.data.telephone,
+            departement: response.data.departement,
+            poste: response.data.poste,
             roles: response.data.roles,
             token: '',
         } as User;

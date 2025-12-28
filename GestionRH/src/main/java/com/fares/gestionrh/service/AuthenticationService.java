@@ -37,16 +37,40 @@ public class AuthenticationService {
         String token = jwtService.generateToken(user.getEmail(), user.getRoles());
         log.info("Connexion: {}", user.getEmail());
 
-        return new LoginResponse(token, user.getEmail(), user.getNomComplet(), user.getRoles());
+        return LoginResponse.builder()
+                .token(token)
+                .email(user.getEmail())
+                .nomComplet(user.getNomComplet())
+                .prenom(user.getPrenom())
+                .nom(user.getNom())
+                .telephone(user.getTelephone())
+                .departement(user.getDepartement() != null ? user.getDepartement().getNom() : null)
+                .poste(user.getPoste() != null ? user.getPoste().getTitre() : null)
+                .roles(user.getRoles())
+                .build();
     }
 
     public LoginResponse getCurrentUser() {
-        String email = (String) org.springframework.security.core.context.SecurityContextHolder.getContext()
+        Object principal = org.springframework.security.core.context.SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
+
+        if (!(principal instanceof String)) {
+            throw new AuthenticationException("Session invalide");
+        }
+
+        String email = (String) principal;
         Utilisateur user = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthenticationException("Utilisateur non trouvé"));
 
-        // On ne renvoie pas de token ici, car il est dans le cookie
-        return new LoginResponse(null, user.getEmail(), user.getNomComplet(), user.getRoles());
+        return LoginResponse.builder()
+                .email(user.getEmail())
+                .nomComplet(user.getNomComplet())
+                .prenom(user.getPrenom())
+                .nom(user.getNom())
+                .telephone(user.getTelephone())
+                .departement(user.getDepartement() != null ? user.getDepartement().getNom() : null)
+                .poste(user.getPoste() != null ? user.getPoste().getTitre() : null)
+                .roles(user.getRoles())
+                .build();
     }
 }

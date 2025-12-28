@@ -29,8 +29,8 @@ public class Conge {
     @Column(nullable = false)
     private LocalDate dateFin;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "type_id", nullable = false)
     private TypeConge type;
 
     @Enumerated(EnumType.STRING)
