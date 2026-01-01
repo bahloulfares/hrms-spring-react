@@ -11,6 +11,7 @@ import { LeaveApprovalPage } from './features/leaves/components/LeaveApprovalPag
 import { LeaveTypesConfigPage } from './features/leaves/components/LeaveTypesConfigPage';
 import { ProfilePage } from './features/auth/components/ProfilePage';
 import { UnauthorizedPage } from './components/common/UnauthorizedPage';
+import { DashboardHomePage } from './features/leaves/components/DashboardHomePage';
 import { useAppSelector, useAppDispatch } from './store/hooks';
 
 import { checkAuth } from './features/auth/authSlice';
@@ -63,7 +64,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<div className="p-4">Bienvenue sur votre tableau de bord RH. Sélectionnez un menu à gauche.</div>} />
+          <Route index element={<DashboardHomePage />} />
 
           {/* Admin & RH Routes */}
           <Route path="departments" element={

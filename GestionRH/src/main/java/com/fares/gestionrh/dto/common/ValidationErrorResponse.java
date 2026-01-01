@@ -2,6 +2,7 @@ package com.fares.gestionrh.dto.common;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -25,6 +26,7 @@ import java.util.Map;
  *     "email": "Format d'email invalide",
  *     "motDePasse": "Le mot de passe est obligatoire"
  *   },
+ *   "path": "/api/auth/login",
  *   "timestamp": "2025-01-15 10:30:00"
  * }
  *
@@ -34,6 +36,7 @@ import java.util.Map;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class ValidationErrorResponse {
 
     /**
@@ -54,10 +57,16 @@ public class ValidationErrorResponse {
     private Map<String, String> errors;
 
     /**
+     * Path de la requête
+     */
+    private String path;
+
+    /**
      * Horodatage de l'erreur
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime timestamp;
+    @Builder.Default
+    private LocalDateTime timestamp = LocalDateTime.now();
 
     /**
      * Constructeur simplifié

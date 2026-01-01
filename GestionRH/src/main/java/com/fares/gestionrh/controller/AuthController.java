@@ -2,6 +2,7 @@ package com.fares.gestionrh.controller;
 
 import com.fares.gestionrh.dto.auth.LoginRequest;
 import com.fares.gestionrh.dto.auth.LoginResponse;
+import com.fares.gestionrh.dto.auth.RegisterRequest;
 import com.fares.gestionrh.service.AuthenticationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,25 +40,44 @@ public class AuthController {
         return ResponseEntity.ok(loginResponse);
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletResponse response) {
+        LoginResponse loginResponse = authenticationService.register(request);
+
+        ResponseCookie cookie = ResponseCookie.from("token", loginResponse.getToken())
+                .httpOnly(true)
+                .secure(false) // Mettre à true en Production (HTTPS)
+                .path("/")
+                .maxAge(24 * 60 * 60)
+                .sameSite("Strict")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        // On évite de renvoyer le token en clair dans le corps
+        loginResponse.setToken(null);
+
+        return ResponseEntity.ok(loginResponse);
+    }
+
     @GetMapping("/me")
     public ResponseEntity<LoginResponse> getCurrentUser() {
-        // L'utilisateur est déjà authentifié par le JWTFilter
-        // On peut récupérer ses infos via le contexte de sécurité ou simplement
-        // renvoyer les infos si on avait un service "UserService.getCurrentUser()"
-        // Pour faire simple ici, on suppose que le token est valide.
-        // Idéalement on extrait l'email du SecurityContextHolder
-        Object principal = org.springframework.security.core.context.SecurityContextHolder.getContext()
-                .getAuthentication().getPrincipal();
+        try {
+            // L'utilisateur est déjà authentifié par le JWTFilter
+            // On récupère l'email depuis le contexte de sécurité
+            Object principal = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
 
-        if (principal instanceof String) { // C'est l'email (set dans JWTFilter)
-            String email = (String) principal;
-            // On devrait récupérer l'user complet depuis la DB ici
-            // Comme je n'ai pas accès facile au repository ici (clean code), je vais
-            // simplifier
-            // Mais attention, JWTFilter met juste l'email et les rôles.
-            // Je vais utiliser AuthenticationService pour recharger l'user
+            if (principal instanceof String) { // C'est l'email (set dans JWTFilter)
+                return ResponseEntity.ok(authenticationService.getCurrentUser());
+            }
+            
+            // Si pas d'authentification valide, retourner 401
+            return ResponseEntity.status(401).build();
+        } catch (Exception e) {
+            // En cas d'erreur (session expirée, user supprimé, etc.)
+            return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(authenticationService.getCurrentUser());
     }
 
     @GetMapping("/test")

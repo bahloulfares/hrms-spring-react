@@ -18,11 +18,13 @@ import com.fares.gestionrh.service.CongeService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 
 import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/conges")
@@ -76,10 +78,32 @@ public class CongeController {
         return ResponseEntity.ok(congeService.getMesSoldes(auth.getName()));
     }
 
+    @GetMapping("/soldes/employe/{employeId}")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN', 'RH')")
+    public ResponseEntity<List<SoldeCongeResponse>> getSoldesEmploye(
+            @PathVariable Long employeId,
+            Authentication auth) {
+        return ResponseEntity.ok(congeService.getSoldesEmploye(employeId, auth.getName()));
+    }
+
+    @GetMapping("/soldes/departement")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN', 'RH')")
+    public ResponseEntity<List<Map<String, Object>>> getSoldesDepartement(Authentication auth) {
+        return ResponseEntity.ok(congeService.getSoldesDepartement(auth.getName()));
+    }
+
     @GetMapping("/types")
     @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN', 'RH')")
     public ResponseEntity<List<com.fares.gestionrh.entity.TypeConge>> getAllTypes() {
         return ResponseEntity.ok(congeService.getAllTypes());
+    }
+
+    @PostMapping("/admin/initialiser-soldes")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> initialiserSoldes() {
+        int anneeActuelle = java.time.LocalDate.now().getYear();
+        Map<String, Object> rapport = congeService.initialiserTousLesSoldes(anneeActuelle);
+        return ResponseEntity.ok(rapport);
     }
 
     @GetMapping("/all")

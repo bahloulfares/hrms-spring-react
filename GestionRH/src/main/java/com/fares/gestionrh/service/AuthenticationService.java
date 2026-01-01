@@ -2,14 +2,19 @@ package com.fares.gestionrh.service;
 
 import com.fares.gestionrh.dto.auth.LoginRequest;
 import com.fares.gestionrh.dto.auth.LoginResponse;
+import com.fares.gestionrh.dto.auth.RegisterRequest;
 import com.fares.gestionrh.entity.Utilisateur;
 import com.fares.gestionrh.exception.AuthenticationException;
+import com.fares.gestionrh.exception.ConflictException;
+import com.fares.gestionrh.mapper.UtilisateurMapper;
 import com.fares.gestionrh.repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class AuthenticationService {
     private final UtilisateurRepository utilisateurRepository;
     private final JWTService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final UtilisateurMapper utilisateurMapper;
+    private final CongeService congeService;
 
     @Transactional(readOnly = true)
     public LoginResponse authenticate(LoginRequest request) {
@@ -47,6 +54,41 @@ public class AuthenticationService {
                 .departement(user.getDepartement() != null ? user.getDepartement().getNom() : null)
                 .poste(user.getPoste() != null ? user.getPoste().getTitre() : null)
                 .roles(user.getRoles())
+                .build();
+    }
+
+    @Transactional
+    public LoginResponse register(RegisterRequest request) {
+        if (utilisateurRepository.existsByEmail(request.getEmail())) {
+            throw new ConflictException("Email déjà utilisé");
+        }
+
+        Utilisateur utilisateur = utilisateurMapper.toEntity(request);
+        utilisateur.setMotDePasse(passwordEncoder.encode(request.getMotDePasse()));
+        utilisateur.setActif(true);
+
+        Utilisateur savedUser = utilisateurRepository.save(utilisateur);
+
+        try {
+            int anneeActuelle = LocalDate.now().getYear();
+            congeService.initialiserSoldesUtilisateur(savedUser.getId(), anneeActuelle);
+            log.info("Soldes de congés initialisés pour le nouvel utilisateur: {}", savedUser.getEmail());
+        } catch (Exception e) {
+            log.warn("Erreur lors de l'initialisation des soldes pour {}: {}", savedUser.getEmail(), e.getMessage());
+        }
+
+        String token = jwtService.generateToken(savedUser.getEmail(), savedUser.getRoles());
+
+        return LoginResponse.builder()
+                .token(token)
+                .email(savedUser.getEmail())
+                .nomComplet(savedUser.getNomComplet())
+                .prenom(savedUser.getPrenom())
+                .nom(savedUser.getNom())
+                .telephone(savedUser.getTelephone())
+                .departement(savedUser.getDepartement() != null ? savedUser.getDepartement().getNom() : null)
+                .poste(savedUser.getPoste() != null ? savedUser.getPoste().getTitre() : null)
+                .roles(savedUser.getRoles())
                 .build();
     }
 

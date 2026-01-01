@@ -1,36 +1,203 @@
 import axios from 'axios';
+import type { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || '/api';
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8088/api';
 
-export const axiosClient = axios.create({
+/**
+ * Client HTTP Axios avec:
+ * - Retry automatique avec backoff exponentiel
+ * - Gestion des erreurs globales (401, 403, 500, etc.)
+ * - Logging structuré
+ * - Timeout configurable
+ */
+export const axiosClient: AxiosInstance = axios.create({
     baseURL,
     headers: {
         'Content-Type': 'application/json',
     },
+    // Important: include cookies for cross-origin requests (localhost:3001 -> 8088)
+    withCredentials: true,
+    timeout: 30000, // 30 secondes
 });
 
-// Intercepteur pour ajouter le token
+/**
+ * Configuration du retry
+ */
+interface RetryConfig extends AxiosRequestConfig {
+    retryCount?: number;
+}
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 seconde
+
+/**
+ * Fonction pour attendre avant retry (avec backoff exponentiel)
+ */
+function delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Détermine si une erreur est "retryable"
+ */
+function isRetryableError(error: AxiosError): boolean {
+    if (!error.response) {
+        // Erreur réseau
+        return true;
+    }
+
+    const status = error.response.status;
+    
+    // Retry sur:
+    // - 408: Request Timeout
+    // - 429: Too Many Requests
+    // - 500: Server Error
+    // - 502: Bad Gateway
+    // - 503: Service Unavailable
+    // - 504: Gateway Timeout
+    return status === 408 || status === 429 || (status >= 500 && status < 600);
+}
+
+// ========================================
+// INTERCEPTEUR REQUEST
+// ========================================
+
+/**
+ * Ajoute le JWT token aux requêtes
+ */
 axiosClient.interceptors.request.use(
     (config) => {
+        // Récupérer le token depuis localStorage
         const token = localStorage.getItem('token');
+        
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Initialiser le retryCount si absent
+        if (!(config as RetryConfig).retryCount) {
+            (config as RetryConfig).retryCount = 0;
+        }
+
+        // Log optionnel (désactiver en prod)
+        if (import.meta.env.DEV) {
+            console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        }
+
         return config;
     },
     (error) => {
+        console.error('[API] Erreur Request:', error);
         return Promise.reject(error);
     }
 );
 
-// Intercepteur pour gérer les erreurs globales (ex: 401)
+// ========================================
+// INTERCEPTEUR RESPONSE
+// ========================================
+
+/**
+ * Gère les réponses et les erreurs avec retry
+ */
 axiosClient.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            // Optionnel : Rediriger vers login ou clear token
-            // window.location.href = '/login';
+    (response) => {
+        if (import.meta.env.DEV) {
+            console.debug(`[API] ✓ ${response.status} ${response.config.url}`);
         }
+        return response;
+    },
+    async (error: AxiosError) => {
+        const config = error.config as RetryConfig;
+        const retryCount = config?.retryCount || 0;
+
+        // ========================================
+        // ERREUR 401 - UNAUTHORIZED
+        // ========================================
+        if (error.response?.status === 401) {
+            console.warn('[API] ✗ 401 Unauthorized - Redirection login');
+            
+            // Nettoyer l'auth et rediriger
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+            return Promise.reject(error);
+        }
+
+        // ========================================
+        // ERREUR 403 - FORBIDDEN
+        // ========================================
+        if (error.response?.status === 403) {
+            console.warn('[API] ✗ 403 Forbidden - Accès refusé');
+            return Promise.reject(error);
+        }
+
+        // ========================================
+        // ERREUR 404 - NOT FOUND
+        // ========================================
+        if (error.response?.status === 404) {
+            console.warn('[API] ✗ 404 Not Found');
+            return Promise.reject(error);
+        }
+
+        // ========================================
+        // RETRY AUTOMATIQUE
+        // ========================================
+        if (isRetryableError(error) && retryCount < MAX_RETRIES) {
+            const waitTime = RETRY_DELAY * Math.pow(2, retryCount); // Backoff exponentiel
+            
+            console.warn(
+                `[API] ⚠️ Erreur ${error.response?.status || 'Network'} - Retry ${retryCount + 1}/${MAX_RETRIES} après ${waitTime}ms`
+            );
+
+            await delay(waitTime);
+
+            // Incrémenter le retryCount
+            (config as RetryConfig).retryCount = retryCount + 1;
+
+            // Relancer la requête
+            return axiosClient(config);
+        }
+
+        // ========================================
+        // ERREURS AUTRES
+        // ========================================
+        
+        // Erreur réseau (pas de réponse du serveur)
+        if (!error.response) {
+            console.error('[API] ✗ Erreur réseau:', error.message);
+            return Promise.reject({
+                status: 0,
+                message: 'Erreur réseau - Vérifiez votre connexion Internet',
+                originalError: error
+            });
+        }
+
+        // Erreur serveur (5xx) non retryable après tentatives
+        if (error.response.status >= 500) {
+            console.error(`[API] ✗ Erreur serveur ${error.response.status}`);
+            return Promise.reject({
+                status: error.response.status,
+                message: 'Erreur serveur - Le service est actuellement indisponible',
+                originalError: error
+            });
+        }
+
+        // Erreur validation (400)
+        if (error.response.status === 400) {
+            console.warn('[API] ✗ 400 Erreur de validation');
+            return Promise.reject(error);
+        }
+
+        // Erreur conflit (409)
+        if (error.response.status === 409) {
+            console.warn('[API] ✗ 409 Conflit de données');
+            return Promise.reject(error);
+        }
+
+        // Autres erreurs
+        console.error(`[API] ✗ Erreur ${error.response.status}:`, error.message);
         return Promise.reject(error);
     }
 );
+
+export default axiosClient;

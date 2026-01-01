@@ -61,15 +61,58 @@ public class Conge {
     @Column(nullable = false)
     private Double nombreJours;
 
-    // Trace du split réel utilisé lors de la déduction (pour recrédit exact)
-    @Column
+    // ========== AMÉLIORATIONS RECOMMANDÉES ==========
+
+    /**
+     * NOUVEAU: Enregistrer le nombre de jours déduit du type spécifique
+     * Permet de recréditer exactement lors d'une annulation
+     * 
+     * Exemple: Congé FORMATION 5j
+     * - FORMATION a 3j, CP a 5j
+     * - Déduction: FORMATION -3j, CP -2j
+     * - joursDeductionSpecifique = 3.0
+     * - joursDeductionCP = 2.0
+     * 
+     * Annulation: recrédite FORMATION +3j, CP +2j (cohérent)
+     */
+    @Column(nullable = true)
     private Double joursDeductionSpecifique;
 
-    @Column
+    /**
+     * NOUVEAU: Enregistrer le nombre de jours déduit sur le CP (débordement)
+     */
+    @Column(nullable = true)
     private Double joursDeductionCP;
 
-    // Méthode utilitaire pour calculer le nombre de jours (utilisée avant la
-    // persistance)
+    /**
+     * NOUVEAU: Énumération pour les types de durée (future feature)
+     * Permet de supporter: journée entière, demi-jour, heure
+     */
+    public enum DureeType {
+        JOURNEE_ENTIERE,      // Par défaut
+        DEMI_JOUR_MATIN,
+        DEMI_JOUR_APRES_MIDI,
+        PAR_HEURE
+    }
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "VARCHAR(50) DEFAULT 'JOURNEE_ENTIERE'")
+    private DureeType dureeType = DureeType.JOURNEE_ENTIERE;
+
+    // Pour future support des demi-journées et congés à l'heure
+    @Column
+    private LocalTime heureDebut;
+
+    @Column
+    private LocalTime heureFin;
+
+    // ========== MÉTHODE UTILITAIRE (INCHANGÉE) ==========
+
+    /**
+     * Calcule le nombre de jours entre deux dates en fonction du type de compte
+     * @deprecated Utiliser CongeService.calculateTotalDays() à la place
+     */
+    @Deprecated
     public static double calculateNombreJours(LocalDate dateDebut, LocalDate dateFin, boolean compteWeekend) {
         if (dateDebut == null || dateFin == null) {
             return 0;

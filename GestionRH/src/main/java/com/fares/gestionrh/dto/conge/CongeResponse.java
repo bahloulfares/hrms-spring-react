@@ -21,7 +21,7 @@ public class CongeResponse {
     private String statut;
     private String motif;
     private String commentaireValidation;
-    private Long nombreJours;
+    private Double nombreJours;
 
     // Informations de l'employé
     private Long employeId;

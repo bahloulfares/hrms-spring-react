@@ -2,6 +2,7 @@ package com.fares.gestionrh.repository;
 
 import com.fares.gestionrh.entity.Utilisateur;
 import com.fares.gestionrh.entity.Role;
+import com.fares.gestionrh.entity.Departement;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +27,6 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
             "LOWER(u.nom) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(u.prenom) LIKE LOWER(CONCAT('%', :search, '%'))")
     List<Utilisateur> searchByNomOrPrenom(@Param("search") String search);
+
+    List<Utilisateur> findByDepartement(Departement departement);
 }

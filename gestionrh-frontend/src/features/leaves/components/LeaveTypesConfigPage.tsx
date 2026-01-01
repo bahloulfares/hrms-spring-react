@@ -102,6 +102,13 @@ export const LeaveTypesConfigPage = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {type.peutDeborderSurCP && (
+                            <div className="mt-4 p-3 bg-purple-50 border border-purple-100 rounded-xl flex items-center gap-3">
+                                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                                <span className="text-[10px] font-black text-purple-700 uppercase tracking-widest">Débordement sur CP autorisé</span>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -129,7 +136,8 @@ const TypeCongeForm = ({ initialData, onSuccess }: { initialData: TypeConge | nu
             nom: '',
             code: '',
             joursParAn: 25,
-            compteWeekend: false
+            compteWeekend: false,
+            peutDeborderSurCP: false
         }
     });
 
@@ -202,6 +210,25 @@ const TypeCongeForm = ({ initialData, onSuccess }: { initialData: TypeConge | nu
                             className="sr-only peer"
                         />
                         <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-6 after:transition-all peer-checked:bg-blue-600 transition-all shadow-inner"></div>
+                    </label>
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <div className="space-y-1">
+                        <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            Autoriser le débordement sur CP
+                        </label>
+                        <p className="text-xs text-slate-500 leading-relaxed max-w-[280px]">
+                            Si activé, le surplus de jours sera automatiquement déduit du solde Congés Payés (CP).
+                        </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            {...register('peutDeborderSurCP')}
+                            className="sr-only peer"
+                        />
+                        <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-6 after:transition-all peer-checked:bg-purple-600 transition-all shadow-inner"></div>
                     </label>
                 </div>
             </div>

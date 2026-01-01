@@ -14,5 +14,6 @@ public class SoldeCongeResponse {
     private String typeCongeNom;
     private String typeCongeCode;
     private Double joursRestants;
+    private Integer joursParAn;
     private Integer annee;
 }

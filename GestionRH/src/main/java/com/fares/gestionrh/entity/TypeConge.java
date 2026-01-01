@@ -30,4 +30,12 @@ public class TypeConge {
     @Column(nullable = false)
     @Builder.Default
     private boolean compteWeekend = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean peutDeborderSurCP = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean actif = true;
 }

@@ -7,7 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "solde_conges")
+@Table(name = "solde_conges", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_solde_conges_user_type_year", columnNames = {"utilisateur_id", "type_conge_id", "annee"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

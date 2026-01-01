@@ -19,10 +19,13 @@ public class CongeMapper {
         TypeConge type = typeCongeRepository.findByCode(dto.getType().toUpperCase())
                 .orElseThrow(() -> new RuntimeException("Type de congé non trouvé: " + dto.getType()));
 
+        double nombreJours = Conge.calculateNombreJours(dto.getDateDebut(), dto.getDateFin(), type.isCompteWeekend());
+
         return Conge.builder()
                 .dateDebut(dto.getDateDebut())
                 .dateFin(dto.getDateFin())
                 .type(type)
+                .nombreJours(nombreJours)
                 .motif(dto.getMotif())
                 .employe(employe)
                 .build();

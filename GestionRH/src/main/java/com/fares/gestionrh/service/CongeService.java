@@ -5,6 +5,8 @@ import com.fares.gestionrh.dto.conge.CongeResponse;
 import com.fares.gestionrh.dto.conge.SoldeCongeResponse;
 import com.fares.gestionrh.dto.conge.ValidationCongeRequest;
 import com.fares.gestionrh.entity.Conge;
+import com.fares.gestionrh.entity.CongeHistorique;
+import com.fares.gestionrh.entity.SoldeConge;
 import com.fares.gestionrh.entity.StatutConge;
 import com.fares.gestionrh.entity.Utilisateur;
 import com.fares.gestionrh.entity.TypeConge;
@@ -12,6 +14,7 @@ import com.fares.gestionrh.exception.BusinessException;
 import com.fares.gestionrh.exception.ResourceNotFoundException;
 import com.fares.gestionrh.mapper.CongeMapper;
 import com.fares.gestionrh.repository.CongeRepository;
+import com.fares.gestionrh.repository.CongeHistoriqueRepository;
 import com.fares.gestionrh.repository.SoldeCongeRepository;
 import com.fares.gestionrh.repository.TypeCongeRepository;
 import com.fares.gestionrh.repository.UtilisateurRepository;
@@ -20,10 +23,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +41,7 @@ public class CongeService {
     private final CongeMapper congeMapper;
     private final SoldeCongeRepository soldeCongeRepository;
     private final TypeCongeRepository typeCongeRepository;
+    private final CongeHistoriqueRepository congeHistoriqueRepository;
 
     @Transactional
     public CongeResponse creerDemande(CongeRequest request, String email) {
@@ -49,23 +55,52 @@ public class CongeService {
         TypeConge typeConge = typeCongeRepository.findByCode(request.getType().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("TypeConge", "code", request.getType()));
 
-        long joursDemandes = calculateNombreJours(request.getDateDebut(), request.getDateFin(),
+        // Calcul des jours par année
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(request.getDateDebut(), request.getDateFin(),
                 typeConge.isCompteWeekend());
-        int annee = request.getDateDebut().getYear();
 
-        soldeCongeRepository.findByUtilisateurAndTypeCongeAndAnnee(employe, typeConge, annee)
-                .ifPresent(solde -> {
-                    if (solde.getJoursRestants() < joursDemandes) {
-                        throw new BusinessException(String.format(
-                                "Quota insuffisant pour le type '%s'. Il vous reste %.1f jours. " +
-                                        "Pour une durée plus longue, veuillez diviser votre demande en utilisant un autre type (ex: Congés Payés).",
-                                typeConge.getNom(), solde.getJoursRestants()));
-                    }
-                });
+        double totalJours = daysPerYear.values().stream().mapToDouble(Double::doubleValue).sum();
+
+        for (Map.Entry<Integer, Double> entry : daysPerYear.entrySet()) {
+            int annee = entry.getKey();
+            double joursDansAnnee = entry.getValue();
+
+            // Garantir que les soldes existent pour l'année demandée
+            initialiserSoldesUtilisateur(employe.getId(), annee);
+
+            double specificRestant = soldeCongeRepository
+                    .findAllByUtilisateurAndTypeCongeAndAnnee(employe, typeConge, annee)
+                    .stream().findFirst()
+                    .map(SoldeConge::getJoursRestants).orElse(0.0);
+
+            double cpRestant = 0.0;
+            // On ne cherche le CP que si le type actuel peut déborder et n'est pas déjà le
+            // CP
+            if (!"CP".equalsIgnoreCase(typeConge.getCode()) && typeConge.isPeutDeborderSurCP()) {
+                TypeConge cpType = typeCongeRepository.findByCode("CP")
+                        .or(() -> typeCongeRepository.findByCode("cp"))
+                        .orElse(null);
+                if (cpType != null) {
+                    cpRestant = soldeCongeRepository.findAllByUtilisateurAndTypeCongeAndAnnee(employe, cpType, annee)
+                            .stream().findFirst()
+                            .map(SoldeConge::getJoursRestants).orElse(0.0);
+                }
+            }
+
+            if (specificRestant + cpRestant < joursDansAnnee) {
+                throw new BusinessException(String.format(
+                        "Quota insuffisant pour l'année %d. Il vous reste %.1f jours (%s) + %.1f jours (CP). " +
+                                "Total disponible: %.1f j pour une demande de %.1f j.",
+                        annee, specificRestant, typeConge.getNom(), cpRestant, (specificRestant + cpRestant),
+                        joursDansAnnee));
+            }
+        }
         // Note: Si aucun solde n'est trouvé, on considère qu'il n'y a pas encore de
         // quota défini ou que c'est illimité (à affiner selon les besoins)
 
         Conge conge = congeMapper.toEntity(request, employe);
+        // Aligne nombreJours avec le calcul multi-années/ouvrés
+        conge.setNombreJours(totalJours);
         Conge saved = congeRepository.save(conge);
 
         log.info("Congé créé: {} pour {}", saved.getId(), email);
@@ -129,6 +164,7 @@ public class CongeService {
                 ? StatutConge.APPROUVE
                 : StatutConge.REJETE;
 
+        StatutConge ancienStatut = conge.getStatut();
         conge.setStatut(nouveauStatut);
         conge.setValidateur(validateur);
         conge.setCommentaireValidation(request.getCommentaire());
@@ -139,9 +175,36 @@ public class CongeService {
             deduireDuSolde(conge);
         }
 
+        Conge savedConge = congeRepository.save(conge);
+
+        // Audit trail
+        logStatutTransition(savedConge, ancienStatut, nouveauStatut, validateurEmail, request.getCommentaire());
+
         log.info("Congé {} {} par {}", id, nouveauStatut, validateurEmail);
 
-        return congeMapper.toDTO(congeRepository.save(conge));
+        return congeMapper.toDTO(savedConge);
+    }
+
+    private Map<Integer, Double> calculateDaysPerYear(LocalDate debut, LocalDate fin, boolean compteWeekend) {
+        Map<Integer, Double> daysPerYear = new HashMap<>();
+        LocalDate current = debut;
+        while (!current.isAfter(fin)) {
+            int year = current.getYear();
+            boolean isWorkingDay = true;
+            if (!compteWeekend) {
+                DayOfWeek dow = current.getDayOfWeek();
+                if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
+                    isWorkingDay = false;
+                }
+                // Optionnel : Ajouter les jours fériés ici si nécessaire
+            }
+
+            if (isWorkingDay) {
+                daysPerYear.put(year, daysPerYear.getOrDefault(year, 0.0) + 1.0);
+            }
+            current = current.plusDays(1);
+        }
+        return daysPerYear;
     }
 
     @Transactional
@@ -166,28 +229,129 @@ public class CongeService {
             recrediterLeSolde(conge);
         }
 
+        Conge savedConge = congeRepository.save(conge);
+
+        // Audit trail
+        logStatutTransition(savedConge, ancienStatut, StatutConge.ANNULE, email, "Annulation par l'employé");
+
         log.info("Congé {} annulé", id);
-        return congeMapper.toDTO(congeRepository.save(conge));
+        return congeMapper.toDTO(savedConge);
     }
 
     private void deduireDuSolde(Conge conge) {
-        int annee = conge.getDateDebut().getYear();
-        soldeCongeRepository.findByUtilisateurAndTypeCongeAndAnnee(conge.getEmploye(), conge.getType(), annee)
-                .ifPresent(solde -> {
-                    double nouveauxJours = solde.getJoursRestants() - conge.getNombreJours();
-                    solde.setJoursRestants(nouveauxJours);
-                    soldeCongeRepository.save(solde);
-                });
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge.getDateDebut(), conge.getDateFin(),
+                conge.getType().isCompteWeekend());
+
+        double totalTakenSpecific = 0.0;
+        double totalTakenCP = 0.0;
+
+        for (Map.Entry<Integer, Double> entry : daysPerYear.entrySet()) {
+            int annee = entry.getKey();
+            double joursADeduire = entry.getValue();
+
+            // S'assurer que les soldes existent
+            initialiserSoldesUtilisateur(conge.getEmploye().getId(), annee);
+
+                // 1. Déduire du type spécifique avec verrou FOR UPDATE pour éviter les races
+                SoldeConge soldeSpecifique = soldeCongeRepository
+                    .findAllByUtilisateurAndTypeCongeAndAnneeForUpdate(conge.getEmploye().getId(),
+                        conge.getType().getId(), annee)
+                    .stream().findFirst()
+                    .orElseThrow(() -> new BusinessException("Solde non trouvé pour l'année " + annee));
+
+            double canTakeFromSpecific = soldeSpecifique.getJoursRestants();
+            double takenFromSpecific = Math.min(canTakeFromSpecific, joursADeduire);
+
+            soldeSpecifique.setJoursRestants(canTakeFromSpecific - takenFromSpecific);
+            soldeCongeRepository.save(soldeSpecifique);
+
+            totalTakenSpecific += takenFromSpecific;
+
+            double resteADeduire = joursADeduire - takenFromSpecific;
+
+            // 2. Si surplus ET autorisé, déduire du CP
+            if (resteADeduire > 0 && conge.getType().isPeutDeborderSurCP()) {
+                TypeConge typeCP = typeCongeRepository.findByCode("CP")
+                        .or(() -> typeCongeRepository.findByCode("cp"))
+                        .orElseThrow(() -> new BusinessException("Type congé CP non configuré ou introuvable"));
+
+                com.fares.gestionrh.entity.SoldeConge soldeCP = soldeCongeRepository
+                    .findAllByUtilisateurAndTypeCongeAndAnneeForUpdate(conge.getEmploye().getId(),
+                        typeCP.getId(), annee)
+                    .stream().findFirst()
+                    .orElseThrow(() -> new BusinessException("Solde CP non trouvé pour l'année " + annee));
+
+                if (soldeCP.getJoursRestants() < resteADeduire) {
+                    throw new BusinessException("Solde CP insuffisant pour l'année " + annee);
+                }
+
+                soldeCP.setJoursRestants(soldeCP.getJoursRestants() - resteADeduire);
+                soldeCongeRepository.save(soldeCP);
+
+                totalTakenCP += resteADeduire;
+
+                log.info("Déduction répartie année {}: {}j sur {}, {}j sur CP",
+                        annee, takenFromSpecific, conge.getType().getCode(), resteADeduire);
+            }
+        }
+
+        conge.setJoursDeductionSpecifique(totalTakenSpecific);
+        conge.setJoursDeductionCP(totalTakenCP);
     }
 
     private void recrediterLeSolde(Conge conge) {
-        int annee = conge.getDateDebut().getYear();
-        soldeCongeRepository.findByUtilisateurAndTypeCongeAndAnnee(conge.getEmploye(), conge.getType(), annee)
-                .ifPresent(solde -> {
-                    double nouveauxJours = solde.getJoursRestants() + conge.getNombreJours();
-                    solde.setJoursRestants(nouveauxJours);
-                    soldeCongeRepository.save(solde);
-                });
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge.getDateDebut(), conge.getDateFin(),
+                conge.getType().isCompteWeekend());
+
+        double remainingSpecific = conge.getJoursDeductionSpecifique() != null ? conge.getJoursDeductionSpecifique()
+                : 0.0;
+        double remainingCP = conge.getJoursDeductionCP() != null ? conge.getJoursDeductionCP() : 0.0;
+
+        for (Map.Entry<Integer, Double> entry : daysPerYear.entrySet()) {
+            int annee = entry.getKey();
+            double joursARecrediter = entry.getValue();
+
+            // On recrédite d'abord le type spécifique (plus simple sans trace précise du
+            // split d'origine)
+            // car le quota spécifique est souvent plus restrictif.
+                SoldeConge soldeSpecifique = soldeCongeRepository
+                    .findAllByUtilisateurAndTypeCongeAndAnneeForUpdate(conge.getEmploye().getId(),
+                        conge.getType().getId(), annee)
+                    .stream().findFirst()
+                    .orElse(null);
+
+            if (soldeSpecifique != null) {
+                double quotaMax = (double) soldeSpecifique.getTypeConge().getJoursParAn();
+                double placeLibre = quotaMax - soldeSpecifique.getJoursRestants();
+                double creditSpecificDemande = Math.min(remainingSpecific, joursARecrediter);
+                double creditSpecific = Math.min(placeLibre, creditSpecificDemande);
+
+                soldeSpecifique.setJoursRestants(soldeSpecifique.getJoursRestants() + creditSpecific);
+                soldeCongeRepository.save(soldeSpecifique);
+
+                remainingSpecific -= creditSpecific;
+
+                double reste = joursARecrediter - creditSpecific;
+
+                if (reste > 0 && remainingCP > 0) {
+                    // Le reste va au CP mais plafonné par ce qui a été réellement déduit du CP
+                    TypeConge typeCP = typeCongeRepository.findByCode("CP").orElse(null);
+                    if (typeCP != null) {
+                        SoldeConge soldeCP = soldeCongeRepository
+                            .findAllByUtilisateurAndTypeCongeAndAnneeForUpdate(conge.getEmploye().getId(),
+                                typeCP.getId(), annee)
+                            .stream().findFirst()
+                            .orElse(null);
+                        if (soldeCP != null) {
+                            double creditCP = Math.min(remainingCP, reste);
+                            soldeCP.setJoursRestants(soldeCP.getJoursRestants() + creditCP);
+                            soldeCongeRepository.save(soldeCP);
+                            remainingCP -= creditCP;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -252,8 +416,161 @@ public class CongeService {
     }
 
     @Transactional(readOnly = true)
+    public List<SoldeCongeResponse> getSoldesEmploye(Long employeId, String managerEmail) {
+        Utilisateur manager = utilisateurRepository.findByEmail(managerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", managerEmail));
+
+        Utilisateur employe = utilisateurRepository.findById(employeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", employeId));
+
+        // Sécurité : Vérifier que le manager a le droit de consulter ce solde
+        boolean isAdmin = manager.getRoles().contains(com.fares.gestionrh.entity.Role.ADMIN);
+        boolean isRH = manager.getRoles().contains(com.fares.gestionrh.entity.Role.RH);
+
+        if (!isAdmin && !isRH) {
+            // Si c'est un manager, vérifier le département
+            Long employeDeptId = employe.getDepartement() != null ? employe.getDepartement().getId() : null;
+            Long managerDeptId = manager.getDepartement() != null ? manager.getDepartement().getId() : null;
+
+            if (employeDeptId == null || !employeDeptId.equals(managerDeptId)) {
+                throw new BusinessException(
+                        "Accès refusé. Vous ne pouvez consulter que les soldes de votre département.");
+            }
+        }
+
+        return soldeCongeRepository.findByUtilisateur(employe).stream()
+                .map(this::mapToSoldeDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getSoldesDepartement(String managerEmail) {
+        Utilisateur manager = utilisateurRepository.findByEmail(managerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", managerEmail));
+
+        boolean isAdmin = manager.getRoles().contains(com.fares.gestionrh.entity.Role.ADMIN);
+        boolean isRH = manager.getRoles().contains(com.fares.gestionrh.entity.Role.RH);
+
+        List<Utilisateur> employes;
+        if (isAdmin || isRH) {
+            // Admin/RH voient tous les employés
+            employes = utilisateurRepository.findAll();
+        } else if (manager.getDepartement() != null) {
+            // Manager voit son département
+            employes = utilisateurRepository.findByDepartement(manager.getDepartement());
+        } else {
+            return List.of();
+        }
+
+        return employes.stream()
+                .map(emp -> {
+                    java.util.Map<String, Object> data = new java.util.HashMap<>();
+                    data.put("employeId", emp.getId());
+                    data.put("employeNom", emp.getNomComplet());
+                    data.put("employeEmail", emp.getEmail());
+                    data.put("departement", emp.getDepartement() != null ? emp.getDepartement().getNom() : "N/A");
+
+                    List<SoldeCongeResponse> soldes = soldeCongeRepository.findByUtilisateur(emp).stream()
+                            .map(this::mapToSoldeDTO)
+                            .collect(Collectors.toList());
+                    data.put("soldes", soldes);
+
+                    return data;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public List<TypeConge> getAllTypes() {
         return typeCongeRepository.findAll();
+    }
+
+    /**
+     * Initialise les soldes de congés pour un utilisateur pour l'année en cours
+     * Crée automatiquement un solde pour chaque type de congé configuré
+     */
+    @Transactional
+    public void initialiserSoldesUtilisateur(Long utilisateurId, int annee) {
+        Utilisateur utilisateur = utilisateurRepository.findById(utilisateurId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", utilisateurId));
+
+        List<TypeConge> types = typeCongeRepository.findAll();
+
+        for (TypeConge type : types) {
+            // Vérifier si le solde existe déjà (handle concurrency - may have duplicates temporarily)
+            List<SoldeConge> existing = soldeCongeRepository
+                    .findAllByUtilisateurAndTypeCongeAndAnnee(utilisateur, type, annee);
+
+            if (existing.isEmpty()) {
+                try {
+                    SoldeConge solde = SoldeConge.builder()
+                            .utilisateur(utilisateur)
+                            .typeConge(type)
+                            .annee(annee)
+                            .joursRestants((double) type.getJoursParAn())
+                            .build();
+                    soldeCongeRepository.save(solde);
+                    log.info("Solde créé pour {} - Type: {} - Année: {} - Jours: {}",
+                            utilisateur.getEmail(), type.getNom(), annee, type.getJoursParAn());
+                } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                    // Race condition: another thread created it just now, ignore
+                    // Clear the failed entity from the session to avoid Hibernate assertion errors
+                    log.debug("Solde already exists for {} - Type: {} - Année: {}", 
+                            utilisateur.getEmail(), type.getNom(), annee);
+                }
+            }
+        }
+    }
+
+    /**
+     * Initialise les soldes pour TOUS les utilisateurs pour l'année en cours
+     * Utile pour l'initialisation du système ou le passage à une nouvelle année
+     */
+    @Transactional
+    public java.util.Map<String, Object> initialiserTousLesSoldes(int annee) {
+        List<Utilisateur> utilisateurs = utilisateurRepository.findAll();
+        int compteurUtilisateurs = 0;
+        int soldesCrees = 0;
+        int soldesExistants = 0;
+
+        for (Utilisateur utilisateur : utilisateurs) {
+            List<TypeConge> types = typeCongeRepository.findAll();
+
+            for (TypeConge type : types) {
+                boolean exists = soldeCongeRepository
+                        .findByUtilisateurAndTypeCongeAndAnnee(utilisateur, type, annee)
+                        .isPresent();
+
+                if (!exists) {
+                    com.fares.gestionrh.entity.SoldeConge solde = com.fares.gestionrh.entity.SoldeConge.builder()
+                            .utilisateur(utilisateur)
+                            .typeConge(type)
+                            .annee(annee)
+                            .joursRestants((double) type.getJoursParAn())
+                            .build();
+                    soldeCongeRepository.save(solde);
+                    soldesCrees++;
+                    log.info("Solde créé pour {} - Type: {} - Année: {} - Jours: {}",
+                            utilisateur.getEmail(), type.getNom(), annee, type.getJoursParAn());
+                } else {
+                    soldesExistants++;
+                }
+            }
+            compteurUtilisateurs++;
+        }
+
+        log.info("Initialisation des soldes terminée : {} utilisateurs traités, {} soldes créés, {} déjà existants",
+                compteurUtilisateurs, soldesCrees, soldesExistants);
+
+        java.util.Map<String, Object> rapport = new java.util.HashMap<>();
+        rapport.put("utilisateursTraites", compteurUtilisateurs);
+        rapport.put("soldesCrees", soldesCrees);
+        rapport.put("soldesExistants", soldesExistants);
+        rapport.put("annee", annee);
+        rapport.put("message",
+                String.format("✅ %d soldes créés pour %d utilisateurs", soldesCrees, compteurUtilisateurs));
+
+        return rapport;
     }
 
     private SoldeCongeResponse mapToSoldeDTO(com.fares.gestionrh.entity.SoldeConge solde) {
@@ -262,6 +579,7 @@ public class CongeService {
                 .typeCongeNom(solde.getTypeConge().getNom())
                 .typeCongeCode(solde.getTypeConge().getCode())
                 .joursRestants(solde.getJoursRestants())
+                .joursParAn(solde.getTypeConge().getJoursParAn())
                 .annee(solde.getAnnee())
                 .build();
     }
@@ -273,6 +591,7 @@ public class CongeService {
         if (fin.isBefore(debut)) {
             throw new BusinessException("La date de fin doit être après la date de début");
         }
+        // Permettre de prendre un congé à partir d'aujourd'hui
         if (debut.isBefore(LocalDate.now())) {
             throw new BusinessException("La date de début ne peut pas être dans le passé");
         }
@@ -285,20 +604,19 @@ public class CongeService {
         }
     }
 
-    public long calculateNombreJours(LocalDate debut, LocalDate fin, boolean compteWeekend) {
-        if (compteWeekend) {
-            return ChronoUnit.DAYS.between(debut, fin) + 1;
-        }
-
-        long count = 0;
-        LocalDate current = debut;
-        while (!current.isAfter(fin)) {
-            java.time.DayOfWeek dow = current.getDayOfWeek();
-            if (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY) {
-                count++;
-            }
-            current = current.plusDays(1);
-        }
-        return count;
+    /**
+     * Enregistre une transition de statut dans l'historique
+     */
+    private void logStatutTransition(Conge conge, StatutConge statutPrecedent, StatutConge statutNouveau,
+                                     String acteur, String commentaire) {
+        CongeHistorique historique = CongeHistorique.builder()
+                .conge(conge)
+                .statutPrecedent(statutPrecedent)
+                .statutNouveau(statutNouveau)
+                .acteur(acteur)
+                .commentaire(commentaire)
+                .build();
+        congeHistoriqueRepository.save(historique);
+        log.debug("Transition enregistrée: {} -> {} par {}", statutPrecedent, statutNouveau, acteur);
     }
 }

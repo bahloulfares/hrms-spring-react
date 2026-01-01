@@ -6,12 +6,15 @@ export interface TypeConge {
     code: string;
     joursParAn: number;
     compteWeekend: boolean;
+    peutDeborderSurCP: boolean;
 }
 
 export interface SoldeConge {
     id: number;
-    typeConge: TypeConge;
+    typeCongeNom: string;
+    typeCongeCode: string;
     joursRestants: number;
+    joursParAn: number;
     annee: number;
 }
 

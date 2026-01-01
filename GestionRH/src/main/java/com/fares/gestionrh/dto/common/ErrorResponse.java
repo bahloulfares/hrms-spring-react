@@ -15,6 +15,7 @@ public class ErrorResponse {
 
     private int status;
     private String message;
+    private String details;
     private String path;
 
     @Builder.Default

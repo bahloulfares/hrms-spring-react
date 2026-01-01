@@ -71,5 +71,17 @@ export const leaveApi = {
 
     deleteType: async (id: number): Promise<void> => {
         await axiosClient.delete(`/admin/type-conges/${id}`);
+    },
+
+    // Initialiser les soldes pour tous les utilisateurs
+    initializeBalances: async (): Promise<{
+        utilisateursTraites: number;
+        soldesCrees: number;
+        soldesExistants: number;
+        annee: number;
+        message: string;
+    }> => {
+        const response = await axiosClient.post('/conges/admin/initialiser-soldes');
+        return response.data;
     }
 };

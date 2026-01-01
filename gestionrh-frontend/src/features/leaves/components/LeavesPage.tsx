@@ -72,21 +72,46 @@ export const LeavesPage = () => {
 
             {/* Balances Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {balances?.map((solde: SoldeConge) => (
-                    <div key={solde.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className={`p-2 rounded-lg ${solde.typeConge.code === 'CP' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                                <Calendar className="w-6 h-6" />
+                {balances?.map((solde: SoldeConge) => {
+                    const totalJours = solde.joursParAn || 0;
+                    const joursUtilises = totalJours - solde.joursRestants;
+                    const pourcentageUtilise = totalJours > 0 ? (joursUtilises / totalJours) * 100 : 0;
+
+                    return (
+                        <div key={solde.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className={`p-2 rounded-lg ${solde.typeCongeCode === 'CP' ? 'bg-blue-50 text-blue-600' : solde.typeCongeCode === 'RTT' ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                    <Calendar className="w-6 h-6" />
+                                </div>
+                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{solde.annee}</span>
                             </div>
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{solde.annee}</span>
+
+                            <h3 className="text-gray-500 text-sm font-medium mb-1">{solde.typeCongeNom}</h3>
+
+                            <div className="flex items-baseline gap-2 mb-4">
+                                <span className="text-3xl font-bold text-gray-900">{solde.joursRestants}</span>
+                                <span className="text-sm text-gray-400">/ {totalJours} jours</span>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs text-gray-500">
+                                    <span>Utilisés: {joursUtilises} j</span>
+                                    <span>{pourcentageUtilise.toFixed(0)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${pourcentageUtilise > 80 ? 'bg-red-500' :
+                                            pourcentageUtilise > 50 ? 'bg-yellow-500' :
+                                                'bg-green-500'
+                                            }`}
+                                        style={{ width: `${pourcentageUtilise}%` }}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                        <h3 className="text-gray-500 text-sm font-medium mb-1">{solde.typeConge.nom}</h3>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-gray-900">{solde.joursRestants}</span>
-                            <span className="text-sm text-gray-400">jours restants</span>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* History Table */}
