@@ -2,7 +2,9 @@ import React, { useState, type FormEvent } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginUser } from '../authSlice';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, Mail, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 
 export const LoginForm = () => {
     const dispatch = useAppDispatch();
@@ -46,50 +48,41 @@ export const LoginForm = () => {
                         </div>
                     )}
 
-                    <div className="rounded-md shadow-sm -space-y-px">
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                            <input
-                                id="email-address"
-                                name="email"
-                                type="email"
-                                autoComplete="email"
-                                required
-                                className="appearance-none rounded-none relative block w-full px-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                                placeholder="Adresse email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                autoComplete="current-password"
-                                required
-                                className="appearance-none rounded-none relative block w-full px-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                                placeholder="Mot de passe"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
+                    <div className="space-y-4">
+                        <Input
+                            id="email-address"
+                            name="email"
+                            type="email"
+                            autoComplete="email"
+                            required
+                            placeholder="Adresse email"
+                            leftIcon={<Mail className="w-5 h-5" />}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+
+                        <Input
+                            id="password"
+                            name="password"
+                            type="password"
+                            autoComplete="current-password"
+                            required
+                            placeholder="Mot de passe"
+                            leftIcon={<Lock className="w-5 h-5" />}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
                     </div>
 
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-md font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-70"
-                        >
-                            {isLoading ? (
-                                <Loader2 className="animate-spin h-5 w-5 text-white" />
-                            ) : (
-                                "Se connecter"
-                            )}
-                        </button>
-                    </div>
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        size="lg"
+                        loading={isLoading}
+                        className="w-full"
+                    >
+                        Se connecter
+                    </Button>
                 </form>
             </div>
         </div>

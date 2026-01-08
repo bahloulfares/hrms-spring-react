@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -230,6 +231,54 @@ class CongeServiceIntegrationTest {
         assertThatThrownBy(() -> congeService.creerDemande(req, employe.getEmail()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("ne peut pas être dans le passé");
+    }
+
+    @Test
+    @DisplayName("Demi-journée: déduit 0.5 jour et ne devient pas négatif")
+    void halfDayConsumesHalfDay() {
+        LocalDate date = LocalDate.now().plusDays(7);
+        CongeRequest req = CongeRequest.builder()
+                .dateDebut(date)
+                .dateFin(date)
+                .type("CP")
+                .dureeType("DEMI_JOUR_MATIN")
+                .motif("RDV")
+                .build();
+
+        var created = congeService.creerDemande(req, employe.getEmail());
+        var valReq = ValidationCongeRequest.builder().statut("APPROUVE").commentaire("ok").build();
+        congeService.validerDemande(created.getId(), valReq, admin.getEmail());
+
+        double remaining = soldeCongeRepository.findAllByUtilisateurAndTypeCongeAndAnnee(employe, typeCP, date.getYear())
+                .stream().findFirst().orElseThrow().getJoursRestants();
+
+        assertThat(remaining).isEqualTo(9.5);
+        assertThat(congeRepository.findById(created.getId()).orElseThrow().getNombreJours()).isEqualTo(0.5);
+    }
+
+    @Test
+    @DisplayName("Par heure: convertit en fraction de jour selon app.workday.hours")
+    void hourlyRequestUsesConfiguredWorkdayHours() {
+        LocalDate date = LocalDate.now().plusDays(10);
+        CongeRequest req = CongeRequest.builder()
+                .dateDebut(date)
+                .dateFin(date)
+                .type("CP")
+                .dureeType("PAR_HEURE")
+                .heureDebut(LocalTime.of(9, 0))
+                .heureFin(LocalTime.of(11, 0))
+                .motif("RDV")
+                .build();
+
+        var created = congeService.creerDemande(req, employe.getEmail());
+        var valReq = ValidationCongeRequest.builder().statut("APPROUVE").commentaire("ok").build();
+        congeService.validerDemande(created.getId(), valReq, admin.getEmail());
+
+        double remaining = soldeCongeRepository.findAllByUtilisateurAndTypeCongeAndAnnee(employe, typeCP, date.getYear())
+                .stream().findFirst().orElseThrow().getJoursRestants();
+
+        assertThat(remaining).isEqualTo(9.75); // 2h sur journée de 8h => 0.25j consommé
+        assertThat(congeRepository.findById(created.getId()).orElseThrow().getNombreJours()).isEqualTo(0.25);
     }
 
     @Test

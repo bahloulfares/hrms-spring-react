@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { AxiosError } from 'axios';
+import { logger } from '@/utils/logger';
 
 /**
  * Structure d'une erreur API
@@ -31,18 +32,6 @@ export const useApiError = () => {
      * Extrait un message d'erreur lisible
      */
     const getErrorMessage = useCallback((error: AxiosError | any): string => {
-        // Erreur personnalisée structurée
-        if (error.response?.data) {
-            const data = error.response.data as ApiError;
-            return data.message || 'Une erreur est survenue';
-        }
-
-        // Erreur réseau
-        if (!error.response) {
-            return 'Erreur réseau - Vérifiez votre connexion Internet';
-        }
-
-        // Messages par code HTTP
         const statusMessages: Record<number, string> = {
             400: 'Erreur de validation - Vérifiez vos données',
             401: 'Session expirée - Veuillez vous reconnecter',
@@ -52,6 +41,22 @@ export const useApiError = () => {
             500: 'Erreur serveur - Réessayez plus tard',
             503: 'Service indisponible - Le serveur est en maintenance',
         };
+
+        // Erreur réseau
+        if (!error.response) {
+            return 'Erreur réseau - Vérifiez votre connexion Internet';
+        }
+
+        // Si on est en prod, on renvoie uniquement des messages génériques
+        if (import.meta.env.PROD) {
+            return statusMessages[error.response.status] || 'Une erreur est survenue';
+        }
+
+        // En dev, on expose le message backend s'il existe
+        if (error.response?.data) {
+            const data = error.response.data as ApiError;
+            return data.message || statusMessages[error.response.status] || 'Une erreur est survenue';
+        }
 
         return statusMessages[error.response.status] || 'Une erreur est survenue';
     }, []);
@@ -77,7 +82,7 @@ export const useApiError = () => {
         const message = getErrorMessage(error);
 
         if (logError) {
-            console.error('[API Error]:', error);
+            logger.error('[API Error]:', error);
         }
 
         if (showToast) {

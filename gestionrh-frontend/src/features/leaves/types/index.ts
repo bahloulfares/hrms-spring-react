@@ -1,5 +1,7 @@
 export type StatutConge = 'EN_ATTENTE' | 'APPROUVE' | 'REJETE' | 'ANNULE';
 
+export type DureeType = 'JOURNEE_ENTIERE' | 'DEMI_JOUR_MATIN' | 'DEMI_JOUR_APRES_MIDI' | 'PAR_HEURE';
+
 export interface TypeConge {
     id: number;
     nom: string;
@@ -41,6 +43,30 @@ export interface CreateCongeRequest {
     dateFin: string;
     type: string; // Code (CP, RTT, etc.)
     motif: string;
+    dureeType?: DureeType;
+    heureDebut?: string; // Format HH:mm
+    heureFin?: string;   // Format HH:mm
+}
+
+export interface CongeReportRequest {
+    dateDebut?: string;
+    dateFin?: string;
+    typeConge?: string | null;
+    statut?: StatutConge | '';
+    departementId?: number;
+    employeId?: number;
+}
+
+export interface CongeStatsResponse {
+    totalDemandes: number;
+    demandesEnAttente: number;
+    demandesApprouvees: number;
+    demandesRejetees: number;
+    demandesAnnulees: number;
+    totalJoursConsommes: number;
+    parType: Record<string, number>;
+    parStatut: Record<string, number>;
+    joursParType: Record<string, number>;
 }
 
 export interface ValidationCongeRequest {

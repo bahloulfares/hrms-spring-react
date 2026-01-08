@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../api';
 import {
@@ -8,8 +8,11 @@ import { Modal } from '../../../components/common/Modal';
 import { LeaveRequestForm } from './LeaveRequestForm';
 import type { Conge, SoldeConge } from '../types';
 
-export const LeavesPage = () => {
+const LeavesPageComponent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [containerHeight, setContainerHeight] = useState(600);
+    const tableContainerRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
     const { data: leaves, isLoading: leavesLoading } = useQuery({
@@ -22,11 +25,57 @@ export const LeavesPage = () => {
         queryFn: leaveApi.getMyBalances
     });
 
+    useEffect(() => {
+        const el = tableContainerRef.current;
+        if (!el) return;
+
+        const updateHeight = () => setContainerHeight(el.clientHeight || 600);
+        updateHeight();
+
+        const resizeObserver = new ResizeObserver(updateHeight);
+        resizeObserver.observe(el);
+
+        return () => resizeObserver.disconnect();
+    }, []);
+
+    const totalLeaves = leaves?.length || 0;
+    const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT) + OVERSCAN;
+    const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+    const endIndex = Math.min(totalLeaves, startIndex + visibleCount);
+    const topSpacer = startIndex * ROW_HEIGHT;
+    const bottomSpacer = Math.max(0, (totalLeaves - endIndex) * ROW_HEIGHT);
+
     const cancelMutation = useMutation({
         mutationFn: leaveApi.cancelLeaveRequest,
+        onMutate: async (leaveId) => {
+            // Cancel any outgoing refetches
+            await queryClient.cancelQueries({ queryKey: ['my-leaves'] });
+
+            // Snapshot the previous value
+            const previousLeaves = queryClient.getQueryData(['my-leaves']);
+
+            // Optimistically update to the new value
+            queryClient.setQueryData(['my-leaves'], (old: any) => {
+                if (!old) return old;
+                return old.map((leave: Conge) =>
+                    leave.id === leaveId
+                        ? { ...leave, statut: 'ANNULE', _optimistic: true }
+                        : leave
+                );
+            });
+
+            // Return a context with the previous value
+            return { previousLeaves };
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my-leaves'] });
             queryClient.invalidateQueries({ queryKey: ['my-balances'] });
+        },
+        onError: (_error, _leaveId, context) => {
+            // Rollback to the previous value on error
+            if (context?.previousLeaves) {
+                queryClient.setQueryData(['my-leaves'], context.previousLeaves);
+            }
         }
     });
 
@@ -119,7 +168,11 @@ export const LeavesPage = () => {
                 <div className="px-6 py-4 border-b border-gray-50">
                     <h3 className="font-bold text-gray-900">Mes Demandes Récentes</h3>
                 </div>
-                <div className="overflow-x-auto">
+                <div
+                    ref={tableContainerRef}
+                    className="overflow-auto max-h-[640px]"
+                    onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+                >
                     <table className="min-w-full divide-y divide-gray-100">
                         <thead className="bg-gray-50/50">
                             <tr>
@@ -130,44 +183,58 @@ export const LeavesPage = () => {
                                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {leaves?.map((leave: Conge) => (
-                                <tr key={leave.id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm font-bold text-gray-900">{leave.type}</div>
-                                        <div className="text-[10px] text-gray-400 uppercase tracking-widest">{leave.motif || 'Aucun motif'}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        <span className="font-bold">{leave.nombreJours}</span> jours
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        Du {new Date(leave.dateDebut).toLocaleDateString()} au {new Date(leave.dateFin).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getStatutColor(leave.statut)}`}>
-                                            {getStatutIcon(leave.statut)}
-                                            {leave.statut}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        {(leave.statut === 'EN_ATTENTE' || leave.statut === 'APPROUVE') && (
-                                            <button
-                                                onClick={() => {
-                                                    if (window.confirm('Annuler cette demande ?')) {
-                                                        cancelMutation.mutate(leave.id);
-                                                    }
-                                                }}
-                                                className="text-gray-400 hover:text-red-500 transition-colors"
-                                                title="Annuler"
-                                            >
-                                                <XCircle className="w-5 h-5" />
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
                     </table>
+                    <div className="relative" style={{ height: totalLeaves * ROW_HEIGHT }}>
+                        <table className="min-w-full divide-y divide-gray-100 absolute top-0 left-0">
+                            <tbody className="divide-y divide-gray-50">
+                                {topSpacer > 0 && (
+                                    <tr style={{ height: topSpacer }}>
+                                        <td colSpan={5} />
+                                    </tr>
+                                )}
+                                {leaves?.slice(startIndex, endIndex).map((leave: Conge) => (
+                                    <tr key={leave.id} className="hover:bg-gray-50/50 transition-colors" style={{ height: ROW_HEIGHT }}>
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm font-bold text-gray-900">{leave.type}</div>
+                                            <div className="text-[10px] text-gray-400 uppercase tracking-widest">{leave.motif || 'Aucun motif'}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            <span className="font-bold">{leave.nombreJours}</span> jours
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            Du {new Date(leave.dateDebut).toLocaleDateString()} au {new Date(leave.dateFin).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getStatutColor(leave.statut)}`}>
+                                                {getStatutIcon(leave.statut)}
+                                                {leave.statut}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            {(leave.statut === 'EN_ATTENTE' || leave.statut === 'APPROUVE') && (
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.confirm('Annuler cette demande ?')) {
+                                                            cancelMutation.mutate(leave.id);
+                                                        }
+                                                    }}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors"
+                                                    title="Annuler"
+                                                >
+                                                    <XCircle className="w-5 h-5" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {bottomSpacer > 0 && (
+                                    <tr style={{ height: bottomSpacer }}>
+                                        <td colSpan={5} />
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -181,3 +248,8 @@ export const LeavesPage = () => {
         </div>
     );
 };
+
+const ROW_HEIGHT = 76;
+const OVERSCAN = 8;
+
+export const LeavesPage = memo(LeavesPageComponent);

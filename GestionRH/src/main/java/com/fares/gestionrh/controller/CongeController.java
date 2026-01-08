@@ -10,18 +10,24 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fares.gestionrh.dto.conge.CongeReportRequest;
 import com.fares.gestionrh.dto.conge.CongeRequest;
 import com.fares.gestionrh.dto.conge.CongeResponse;
+import com.fares.gestionrh.dto.conge.CongeStatsResponse;
 import com.fares.gestionrh.dto.conge.SoldeCongeResponse;
 import com.fares.gestionrh.dto.conge.ValidationCongeRequest;
 import com.fares.gestionrh.service.CongeService;
+import com.fares.gestionrh.service.CsvExportService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -32,6 +38,7 @@ import org.springframework.security.core.Authentication;
 public class CongeController {
 
     private final CongeService congeService;
+    private final CsvExportService csvExportService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN', 'RH')")
@@ -110,5 +117,32 @@ public class CongeController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<CongeResponse>> getAllConges() {
         return ResponseEntity.ok(congeService.getAllConges());
+    }
+
+    @PostMapping("/report/statistics")
+    @PreAuthorize("hasAnyRole('MANAGER', 'RH', 'ADMIN')")
+    public ResponseEntity<CongeStatsResponse> getStatistics(@RequestBody CongeReportRequest request) {
+        return ResponseEntity.ok(congeService.getStatistics(request));
+    }
+
+    @PostMapping("/report/export")
+    @PreAuthorize("hasAnyRole('MANAGER', 'RH', 'ADMIN')")
+    public ResponseEntity<List<CongeResponse>> getReport(@RequestBody CongeReportRequest request) {
+        return ResponseEntity.ok(congeService.getReport(request));
+    }
+
+    @PostMapping("/report/export-csv")
+    @PreAuthorize("hasAnyRole('MANAGER', 'RH', 'ADMIN')")
+    public ResponseEntity<byte[]> exportCsv(@RequestBody CongeReportRequest request) throws IOException {
+        List<CongeResponse> conges = congeService.getReport(request);
+        byte[] csv = csvExportService.exportCongesToCsv(conges);
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDispositionFormData("attachment", "conges-export.csv");
+        
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(csv);
     }
 }

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import { logger } from '@/utils/logger';
 
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8088/api';
 
@@ -63,31 +64,22 @@ function isRetryableError(error: AxiosError): boolean {
 // ========================================
 
 /**
- * Ajoute le JWT token aux requêtes
+ * Ajoute le JWT token aux requêtes (via cookie httpOnly, pas de localStorage)
  */
 axiosClient.interceptors.request.use(
     (config) => {
-        // Récupérer le token depuis localStorage
-        const token = localStorage.getItem('token');
-        
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-
         // Initialiser le retryCount si absent
         if (!(config as RetryConfig).retryCount) {
             (config as RetryConfig).retryCount = 0;
         }
 
         // Log optionnel (désactiver en prod)
-        if (import.meta.env.DEV) {
-            console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
-        }
+        logger.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
 
         return config;
     },
     (error) => {
-        console.error('[API] Erreur Request:', error);
+        logger.error('[API] Erreur Request:', error);
         return Promise.reject(error);
     }
 );
@@ -101,9 +93,7 @@ axiosClient.interceptors.request.use(
  */
 axiosClient.interceptors.response.use(
     (response) => {
-        if (import.meta.env.DEV) {
-            console.debug(`[API] ✓ ${response.status} ${response.config.url}`);
-        }
+        logger.debug(`[API] ✓ ${response.status} ${response.config.url}`);
         return response;
     },
     async (error: AxiosError) => {
@@ -114,11 +104,7 @@ axiosClient.interceptors.response.use(
         // ERREUR 401 - UNAUTHORIZED
         // ========================================
         if (error.response?.status === 401) {
-            console.warn('[API] ✗ 401 Unauthorized - Redirection login');
-            
-            // Nettoyer l'auth et rediriger
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            logger.debug('[API] ✗ 401 Unauthorized - Redirection login');
             window.location.href = '/login';
             return Promise.reject(error);
         }
@@ -127,7 +113,7 @@ axiosClient.interceptors.response.use(
         // ERREUR 403 - FORBIDDEN
         // ========================================
         if (error.response?.status === 403) {
-            console.warn('[API] ✗ 403 Forbidden - Accès refusé');
+            logger.debug('[API] ✗ 403 Forbidden - Accès refusé');
             return Promise.reject(error);
         }
 
@@ -135,7 +121,7 @@ axiosClient.interceptors.response.use(
         // ERREUR 404 - NOT FOUND
         // ========================================
         if (error.response?.status === 404) {
-            console.warn('[API] ✗ 404 Not Found');
+            logger.debug('[API] ✗ 404 Not Found');
             return Promise.reject(error);
         }
 
@@ -164,7 +150,7 @@ axiosClient.interceptors.response.use(
         
         // Erreur réseau (pas de réponse du serveur)
         if (!error.response) {
-            console.error('[API] ✗ Erreur réseau:', error.message);
+            logger.error('[API] ✗ Erreur réseau:', error.message);
             return Promise.reject({
                 status: 0,
                 message: 'Erreur réseau - Vérifiez votre connexion Internet',
@@ -174,7 +160,7 @@ axiosClient.interceptors.response.use(
 
         // Erreur serveur (5xx) non retryable après tentatives
         if (error.response.status >= 500) {
-            console.error(`[API] ✗ Erreur serveur ${error.response.status}`);
+            logger.error(`[API] ✗ Erreur serveur ${error.response.status}`);
             return Promise.reject({
                 status: error.response.status,
                 message: 'Erreur serveur - Le service est actuellement indisponible',
@@ -184,18 +170,18 @@ axiosClient.interceptors.response.use(
 
         // Erreur validation (400)
         if (error.response.status === 400) {
-            console.warn('[API] ✗ 400 Erreur de validation');
+            logger.debug('[API] ✗ 400 Erreur de validation');
             return Promise.reject(error);
         }
 
         // Erreur conflit (409)
         if (error.response.status === 409) {
-            console.warn('[API] ✗ 409 Conflit de données');
+            logger.debug('[API] ✗ 409 Conflit de données');
             return Promise.reject(error);
         }
 
         // Autres erreurs
-        console.error(`[API] ✗ Erreur ${error.response.status}:`, error.message);
+        logger.error(`[API] ✗ Erreur ${error.response.status}:`, error.message);
         return Promise.reject(error);
     }
 );

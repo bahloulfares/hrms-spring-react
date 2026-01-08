@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { getDepartements, deleteDepartement } from '../api';
 import { Modal } from '../../../components/common/Modal';
 import { DepartmentForm } from './DepartmentForm';
 import type { Departement } from '../types';
 import { Building2, User, Search, Plus, Trash2, Edit3, AlignLeft } from 'lucide-react';
 
-export const DepartmentsPage = () => {
+const DepartmentsPageComponent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedDepartment, setSelectedDepartment] = useState<Departement | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -32,8 +33,9 @@ export const DepartmentsPage = () => {
             try {
                 await deleteDepartement(id);
                 queryClient.invalidateQueries({ queryKey: ['departements'] });
+                toast.success('Département supprimé avec succès');
             } catch (err) {
-                alert('Erreur lors de la suppression. Vérifiez si des employés y sont rattachés.');
+                toast.error('Erreur lors de la suppression. Vérifiez si des employés y sont rattachés.');
             }
         }
     };
@@ -167,4 +169,6 @@ export const DepartmentsPage = () => {
         </div>
     );
 };
+
+export const DepartmentsPage = memo(DepartmentsPageComponent);
 

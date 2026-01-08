@@ -19,13 +19,15 @@ public class CongeMapper {
         TypeConge type = typeCongeRepository.findByCode(dto.getType().toUpperCase())
                 .orElseThrow(() -> new RuntimeException("Type de congé non trouvé: " + dto.getType()));
 
-        double nombreJours = Conge.calculateNombreJours(dto.getDateDebut(), dto.getDateFin(), type.isCompteWeekend());
-
         return Conge.builder()
                 .dateDebut(dto.getDateDebut())
                 .dateFin(dto.getDateFin())
                 .type(type)
-                .nombreJours(nombreJours)
+            .dureeType(parseDureeType(dto.getDureeType()))
+            .heureDebut(dto.getHeureDebut())
+            .heureFin(dto.getHeureFin())
+            // nombreJours sera calculé dans le service pour intégrer la logique partielle/horaire
+            .nombreJours(0.0)
                 .motif(dto.getMotif())
                 .employe(employe)
                 .build();
@@ -41,6 +43,9 @@ public class CongeMapper {
                 .motif(entity.getMotif())
                 .commentaireValidation(entity.getCommentaireValidation())
                 .nombreJours(entity.getNombreJours())
+                .dureeType(entity.getDureeType() != null ? entity.getDureeType().name() : null)
+                .heureDebut(entity.getHeureDebut())
+                .heureFin(entity.getHeureFin())
                 .employeId(entity.getEmploye().getId())
                 .employeNom(entity.getEmploye().getNomComplet())
                 .employeEmail(entity.getEmploye().getEmail())
@@ -49,5 +54,16 @@ public class CongeMapper {
                 .dateDemande(entity.getDateDemande())
                 .dateValidation(entity.getDateValidation())
                 .build();
+    }
+
+    private Conge.DureeType parseDureeType(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Conge.DureeType.JOURNEE_ENTIERE;
+        }
+        try {
+            return Conge.DureeType.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return Conge.DureeType.JOURNEE_ENTIERE;
+        }
     }
 }

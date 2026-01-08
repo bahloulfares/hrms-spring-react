@@ -4,6 +4,11 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { createPoste, updatePoste } from '../api';
 import { getDepartements } from '../../departments/api';
 import type { Poste, CreatePosteRequest } from '../types';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import toast from 'react-hot-toast';
 
 interface JobFormProps {
     initialData?: Poste | null;
@@ -46,7 +51,11 @@ export const JobForm: React.FC<JobFormProps> = ({ initialData, onSuccess }) => {
                 : createPoste(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['postes'] });
+            toast.success(initialData ? 'Poste modifié avec succès' : 'Poste créé avec succès');
             onSuccess();
+        },
+        onError: () => {
+            toast.error(initialData ? 'Erreur lors de la modification du poste' : 'Erreur lors de la création du poste');
         },
     });
 
@@ -56,70 +65,55 @@ export const JobForm: React.FC<JobFormProps> = ({ initialData, onSuccess }) => {
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-                <label htmlFor="titre" className="block text-sm font-medium text-gray-700">Titre du Poste</label>
-                <input
-                    type="text"
-                    id="titre"
-                    {...register('titre', { required: 'Le titre est obligatoire' })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
-                />
-                {errors.titre && <p className="text-red-500 text-xs mt-1">{errors.titre.message}</p>}
-            </div>
+            <Input
+                label="Titre du Poste"
+                id="titre"
+                type="text"
+                error={errors.titre?.message}
+                {...register('titre', { required: 'Le titre est obligatoire' })}
+            />
 
-            <div>
-                <label htmlFor="departementId" className="block text-sm font-medium text-gray-700">Département</label>
-                <select
-                    id="departementId"
-                    {...register('departementId', { required: 'Le département est obligatoire' })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
-                >
-                    <option value="">Sélectionner un département</option>
-                    {departements?.map(dept => (
-                        <option key={dept.id} value={dept.id}>{dept.nom}</option>
-                    ))}
-                </select>
-                {errors.departementId && <p className="text-red-500 text-xs mt-1">{errors.departementId.message}</p>}
-            </div>
+            <Select
+                label="Département"
+                id="departementId"
+                error={errors.departementId?.message}
+                {...register('departementId', { required: 'Le département est obligatoire' })}
+            >
+                <option value="">Sélectionner un département</option>
+                {departements?.map(dept => (
+                    <option key={dept.id} value={dept.id}>{dept.nom}</option>
+                ))}
+            </Select>
 
             <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label htmlFor="salaireMin" className="block text-sm font-medium text-gray-700">Salaire Min</label>
-                    <input
-                        type="number"
-                        id="salaireMin"
-                        {...register('salaireMin')}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
-                    />
-                </div>
-                <div>
-                    <label htmlFor="salaireMax" className="block text-sm font-medium text-gray-700">Salaire Max</label>
-                    <input
-                        type="number"
-                        id="salaireMax"
-                        {...register('salaireMax')}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
-                    />
-                </div>
-            </div>
-
-            <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
-                <textarea
-                    id="description"
-                    {...register('description')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                <Input
+                    label="Salaire Min"
+                    id="salaireMin"
+                    type="number"
+                    {...register('salaireMin')}
+                />
+                <Input
+                    label="Salaire Max"
+                    id="salaireMax"
+                    type="number"
+                    {...register('salaireMax')}
                 />
             </div>
 
+            <Textarea
+                label="Description"
+                id="description"
+                {...register('description')}
+            />
+
             <div className="flex justify-end pt-4">
-                <button
+                <Button
                     type="submit"
-                    disabled={mutation.isPending}
-                    className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    variant="primary"
+                    loading={mutation.isPending}
                 >
-                    {mutation.isPending ? (initialData ? 'Modification...' : 'Création...') : (initialData ? 'Modifier' : 'Créer')}
-                </button>
+                    {initialData ? 'Modifier' : 'Créer'}
+                </Button>
             </div>
 
             {mutation.isError && (

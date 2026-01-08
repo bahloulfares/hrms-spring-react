@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { getEmployees, deleteEmployee } from '../api';
 import { Modal } from '../../../components/common/Modal';
 import { EmployeeForm } from './EmployeeForm';
@@ -11,12 +12,18 @@ import {
     Edit3, Trash2, Filter, User
 } from 'lucide-react';
 
-export const EmployeesPage = () => {
+const ROW_HEIGHT = 88;
+const OVERSCAN = 8;
+
+const EmployeesPageComponent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [deptFilter, setDeptFilter] = useState('');
     const [jobFilter, setJobFilter] = useState('');
+    const [scrollTop, setScrollTop] = useState(0);
+    const [containerHeight, setContainerHeight] = useState(600);
+    const tableContainerRef = useRef<HTMLDivElement>(null);
 
     const queryClient = useQueryClient();
 
@@ -27,6 +34,19 @@ export const EmployeesPage = () => {
 
     const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: getDepartements });
     const { data: postes } = useQuery({ queryKey: ['postes'], queryFn: getPostes });
+
+    useEffect(() => {
+        const el = tableContainerRef.current;
+        if (!el) return;
+
+        const updateHeight = () => setContainerHeight(el.clientHeight || 600);
+        updateHeight();
+
+        const resizeObserver = new ResizeObserver(updateHeight);
+        resizeObserver.observe(el);
+
+        return () => resizeObserver.disconnect();
+    }, []);
 
     const handleCreate = () => {
         setSelectedEmployee(null);
@@ -43,8 +63,9 @@ export const EmployeesPage = () => {
             try {
                 await deleteEmployee(id);
                 queryClient.invalidateQueries({ queryKey: ['employees'] });
+                toast.success('Employé supprimé avec succès');
             } catch (err) {
-                alert('Erreur lors de la suppression');
+                toast.error('Erreur lors de la suppression');
             }
         }
     };
@@ -65,6 +86,13 @@ export const EmployeesPage = () => {
         }).sort((a, b) => a.nom.localeCompare(b.nom));
     }, [employees, searchQuery, deptFilter, jobFilter]);
 
+    const totalEmployees = filteredEmployees.length;
+    const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT) + OVERSCAN;
+    const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+    const endIndex = Math.min(totalEmployees, startIndex + visibleCount);
+    const topSpacer = startIndex * ROW_HEIGHT;
+    const bottomSpacer = Math.max(0, (totalEmployees - endIndex) * ROW_HEIGHT);
+
     // Role Color Mapping
     const getRoleColor = (role: string) => {
         switch (role) {
@@ -81,12 +109,14 @@ export const EmployeesPage = () => {
         </div>
     );
 
-    if (error) return (
-        <div className="bg-red-50 p-4 rounded-lg text-red-700 flex items-center gap-2">
-            <Trash2 className="w-5 h-5" />
-            Erreur lors du chargement des employés
-        </div>
-    );
+    if (error) {
+        return (
+            <div className="bg-red-50 p-4 rounded-lg text-red-700 flex items-center gap-2">
+                <Trash2 className="w-5 h-5" />
+                Erreur lors du chargement des employés
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -143,7 +173,11 @@ export const EmployeesPage = () => {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+                <div
+                    ref={tableContainerRef}
+                    className="overflow-auto max-h-[640px]"
+                    onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+                >
                     <table className="min-w-full divide-y divide-gray-100">
                         <thead className="bg-gray-50/50">
                             <tr>
@@ -154,94 +188,109 @@ export const EmployeesPage = () => {
                                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {filteredEmployees.map((emp) => (
-                                <tr key={emp.id} className="hover:bg-blue-50/20 transition-colors group">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <div className="h-10 w-10 flex-shrink-0">
-                                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
-                                                    {emp.nom[0]}{emp.prenom[0]}
+                    </table>
+                    <div className="relative" style={{ height: totalEmployees * ROW_HEIGHT }}>
+                        <table className="min-w-full divide-y divide-gray-100 absolute top-0 left-0">
+                            <tbody className="divide-y divide-gray-50">
+                                {topSpacer > 0 && (
+                                    <tr style={{ height: topSpacer }}>
+                                        <td colSpan={5} />
+                                    </tr>
+                                )}
+                                {filteredEmployees.slice(startIndex, endIndex).map((emp) => (
+                                    <tr key={emp.id} className="hover:bg-blue-50/20 transition-colors group" style={{ height: ROW_HEIGHT }}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center">
+                                                <div className="h-10 w-10 flex-shrink-0">
+                                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
+                                                        {emp.nom[0]}{emp.prenom[0]}
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{emp.nomComplet}</div>
+                                                    <div className="text-[11px] text-gray-400 font-medium">ID: #{emp.id}</div>
                                                 </div>
                                             </div>
-                                            <div className="ml-4">
-                                                <div className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{emp.nomComplet}</div>
-                                                <div className="text-[11px] text-gray-400 font-medium">ID: #{emp.id}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                    <Mail className="w-3.5 h-3.5 text-gray-400" />
+                                                    <span>{emp.email}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                    <Phone className="w-3.5 h-3.5 text-gray-400" />
+                                                    <span>{emp.telephone || 'Non renseigné'}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex flex-col gap-1">
-                                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                <Mail className="w-3.5 h-3.5 text-gray-400" />
-                                                <span>{emp.email}</span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                                    <Briefcase className="w-3.5 h-3.5 text-blue-500" />
+                                                    <span>{emp.poste || <span className="text-gray-300 font-normal">Sans poste</span>}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                    <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                                                    <span>{emp.departement || <span className="text-gray-300">Aucun</span>}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                <Phone className="w-3.5 h-3.5 text-gray-400" />
-                                                <span>{emp.telephone || 'Non renseigné'}</span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-wrap gap-1">
+                                                {emp.roles.map(role => (
+                                                    <span
+                                                        key={role}
+                                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getRoleColor(role)} uppercase tracking-tighter`}
+                                                    >
+                                                        {role}
+                                                    </span>
+                                                ))}
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex flex-col gap-1">
-                                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                                                <Briefcase className="w-3.5 h-3.5 text-blue-500" />
-                                                <span>{emp.poste || <span className="text-gray-300 font-normal">Sans poste</span>}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                                                <span>{emp.departement || <span className="text-gray-300">Aucun</span>}</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex flex-wrap gap-1">
-                                            {emp.roles.map(role => (
-                                                <span
-                                                    key={role}
-                                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getRoleColor(role)} uppercase tracking-tighter`}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleEdit(emp)}
+                                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                    title="Modifier"
                                                 >
-                                                    {role}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                onClick={() => handleEdit(emp)}
-                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                title="Modifier"
-                                            >
-                                                <Edit3 className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(emp.id)}
-                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                title="Supprimer"
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-                {filteredEmployees.length === 0 && (
-                    <div className="p-12 text-center">
-                        <User className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                        <p className="text-gray-500 font-medium">Aucun collaborateur ne correspond aux critères.</p>
-                        <button
-                            onClick={() => { setSearchQuery(''); setDeptFilter(''); setJobFilter(''); }}
-                            className="mt-2 text-blue-600 text-sm font-semibold hover:underline"
-                        >
-                            Réinitialiser les filtres
-                        </button>
+                                                    <Edit3 className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(emp.id)}
+                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    title="Supprimer"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {bottomSpacer > 0 && (
+                                    <tr style={{ height: bottomSpacer }}>
+                                        <td colSpan={5} />
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                )}
+                </div>
             </div>
+
+            {filteredEmployees.length === 0 && (
+                <div className="p-12 text-center">
+                    <User className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">Aucun collaborateur ne correspond aux critères.</p>
+                    <button
+                        onClick={() => { setSearchQuery(''); setDeptFilter(''); setJobFilter(''); }}
+                        className="mt-2 text-blue-600 text-sm font-semibold hover:underline"
+                    >
+                        Réinitialiser les filtres
+                    </button>
+                </div>
+            )}
 
             <Modal
                 isOpen={isModalOpen}
@@ -259,3 +308,5 @@ export const EmployeesPage = () => {
         </div>
     );
 };
+
+export const EmployeesPage = memo(EmployeesPageComponent);

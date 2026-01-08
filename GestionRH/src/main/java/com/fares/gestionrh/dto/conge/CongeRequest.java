@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Data
 @NoArgsConstructor
@@ -30,4 +31,15 @@ public class CongeRequest {
 
     @Size(max = 500, message = "Le motif ne peut pas dépasser 500 caractères")
     private String motif;
+
+    /**
+     * Type de durée : JOURNEE_ENTIERE (défaut), DEMI_JOUR_MATIN, DEMI_JOUR_APRES_MIDI, PAR_HEURE
+     */
+    private String dureeType;
+
+    /**
+     * Heures de début/fin pour le mode PAR_HEURE
+     */
+    private LocalTime heureDebut;
+    private LocalTime heureFin;
 }

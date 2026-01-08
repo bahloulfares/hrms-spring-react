@@ -4,7 +4,9 @@ import type {
     CreateCongeRequest,
     ValidationCongeRequest,
     SoldeConge,
-    TypeConge
+    TypeConge,
+    CongeReportRequest,
+    CongeStatsResponse
 } from '../types';
 
 export const leaveApi = {
@@ -71,6 +73,22 @@ export const leaveApi = {
 
     deleteType: async (id: number): Promise<void> => {
         await axiosClient.delete(`/admin/type-conges/${id}`);
+    },
+
+    // Reporting / Statistiques
+    getStatistics: async (payload: CongeReportRequest): Promise<CongeStatsResponse> => {
+        const response = await axiosClient.post('/conges/report/statistics', payload);
+        return response.data;
+    },
+
+    getReport: async (payload: CongeReportRequest): Promise<Conge[]> => {
+        const response = await axiosClient.post('/conges/report/export', payload);
+        return response.data;
+    },
+
+    exportCsv: async (payload: CongeReportRequest): Promise<Blob> => {
+        const response = await axiosClient.post('/conges/report/export-csv', payload, { responseType: 'blob' });
+        return response.data;
     },
 
     // Initialiser les soldes pour tous les utilisateurs

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
 @NoArgsConstructor
@@ -22,6 +23,9 @@ public class CongeResponse {
     private String motif;
     private String commentaireValidation;
     private Double nombreJours;
+    private String dureeType;
+    private LocalTime heureDebut;
+    private LocalTime heureFin;
 
     // Informations de l'employé
     private Long employeId;

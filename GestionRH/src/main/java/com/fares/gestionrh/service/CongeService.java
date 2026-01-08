@@ -1,7 +1,9 @@
 package com.fares.gestionrh.service;
 
+import com.fares.gestionrh.dto.conge.CongeReportRequest;
 import com.fares.gestionrh.dto.conge.CongeRequest;
 import com.fares.gestionrh.dto.conge.CongeResponse;
+import com.fares.gestionrh.dto.conge.CongeStatsResponse;
 import com.fares.gestionrh.dto.conge.SoldeCongeResponse;
 import com.fares.gestionrh.dto.conge.ValidationCongeRequest;
 import com.fares.gestionrh.entity.Conge;
@@ -10,6 +12,7 @@ import com.fares.gestionrh.entity.SoldeConge;
 import com.fares.gestionrh.entity.StatutConge;
 import com.fares.gestionrh.entity.Utilisateur;
 import com.fares.gestionrh.entity.TypeConge;
+import com.fares.gestionrh.event.LeaveEvent;
 import com.fares.gestionrh.exception.BusinessException;
 import com.fares.gestionrh.exception.ResourceNotFoundException;
 import com.fares.gestionrh.mapper.CongeMapper;
@@ -20,12 +23,16 @@ import com.fares.gestionrh.repository.TypeCongeRepository;
 import com.fares.gestionrh.repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,24 +49,36 @@ public class CongeService {
     private final SoldeCongeRepository soldeCongeRepository;
     private final TypeCongeRepository typeCongeRepository;
     private final CongeHistoriqueRepository congeHistoriqueRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    @Value("${app.workday.hours:8}")
+    private double workdayHours;
 
     @Transactional
     public CongeResponse creerDemande(CongeRequest request, String email) {
         Utilisateur employe = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", email));
 
-        validateDates(request.getDateDebut(), request.getDateFin());
+        Conge.DureeType dureeType = parseDureeType(request.getDureeType());
+        validateDates(request, dureeType);
         checkChevauchements(employe.getId(), request.getDateDebut(), request.getDateFin());
 
         // Vérification du solde
         TypeConge typeConge = typeCongeRepository.findByCode(request.getType().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("TypeConge", "code", request.getType()));
 
-        // Calcul des jours par année
-        Map<Integer, Double> daysPerYear = calculateDaysPerYear(request.getDateDebut(), request.getDateFin(),
-                typeConge.isCompteWeekend());
+        // Préparer l'entité avec la durée demandée
+        Conge conge = congeMapper.toEntity(request, employe);
+        conge.setDureeType(dureeType);
+
+        // Calcul des jours par année (inclut demi-journée / horaire)
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, typeConge.isCompteWeekend());
 
         double totalJours = daysPerYear.values().stream().mapToDouble(Double::doubleValue).sum();
+
+        if (totalJours <= 0) {
+            throw new BusinessException("La durée du congé doit être supérieure à zéro");
+        }
 
         for (Map.Entry<Integer, Double> entry : daysPerYear.entrySet()) {
             int annee = entry.getKey();
@@ -98,10 +117,10 @@ public class CongeService {
         // Note: Si aucun solde n'est trouvé, on considère qu'il n'y a pas encore de
         // quota défini ou que c'est illimité (à affiner selon les besoins)
 
-        Conge conge = congeMapper.toEntity(request, employe);
-        // Aligne nombreJours avec le calcul multi-années/ouvrés
         conge.setNombreJours(totalJours);
         Conge saved = congeRepository.save(conge);
+
+        publishLeaveEvent(LeaveEvent.Type.CREATED, saved);
 
         log.info("Congé créé: {} pour {}", saved.getId(), email);
         return congeMapper.toDTO(saved);
@@ -180,12 +199,52 @@ public class CongeService {
         // Audit trail
         logStatutTransition(savedConge, ancienStatut, nouveauStatut, validateurEmail, request.getCommentaire());
 
+        // Notifications
+        LeaveEvent.Type evtType = StatutConge.APPROUVE.equals(nouveauStatut)
+            ? LeaveEvent.Type.VALIDATED
+            : LeaveEvent.Type.REJECTED;
+        publishLeaveEvent(evtType, savedConge);
+
         log.info("Congé {} {} par {}", id, nouveauStatut, validateurEmail);
 
         return congeMapper.toDTO(savedConge);
     }
 
-    private Map<Integer, Double> calculateDaysPerYear(LocalDate debut, LocalDate fin, boolean compteWeekend) {
+    private Map<Integer, Double> calculateDaysPerYear(Conge conge, boolean compteWeekend) {
+        Map<Integer, Double> daysPerYear = new HashMap<>();
+        Conge.DureeType dureeType = conge.getDureeType() != null ? conge.getDureeType()
+                : Conge.DureeType.JOURNEE_ENTIERE;
+
+        switch (dureeType) {
+            case DEMI_JOUR_MATIN:
+            case DEMI_JOUR_APRES_MIDI:
+                ensureSameDay(conge.getDateDebut(), conge.getDateFin(), "Un congé demi-journée doit être sur une seule journée");
+                daysPerYear.put(conge.getDateDebut().getYear(), 0.5);
+                break;
+            case PAR_HEURE:
+                ensureSameDay(conge.getDateDebut(), conge.getDateFin(), "Un congé horaire doit être sur une seule journée");
+                if (conge.getHeureDebut() == null || conge.getHeureFin() == null) {
+                    throw new BusinessException("Les heures de début et fin sont obligatoires pour un congé horaire");
+                }
+                if (!conge.getHeureDebut().isBefore(conge.getHeureFin())) {
+                    throw new BusinessException("L'heure de début doit être avant l'heure de fin");
+                }
+                double heures = Duration.between(conge.getHeureDebut(), conge.getHeureFin()).toMinutes() / 60.0;
+                double jours = heures / workdayHours;
+                if (jours <= 0) {
+                    throw new BusinessException("La durée horaire doit être positive");
+                }
+                daysPerYear.put(conge.getDateDebut().getYear(), jours);
+                break;
+            case JOURNEE_ENTIERE:
+            default:
+                daysPerYear = calculateWorkingDays(conge.getDateDebut(), conge.getDateFin(), compteWeekend);
+        }
+
+        return daysPerYear;
+    }
+
+    private Map<Integer, Double> calculateWorkingDays(LocalDate debut, LocalDate fin, boolean compteWeekend) {
         Map<Integer, Double> daysPerYear = new HashMap<>();
         LocalDate current = debut;
         while (!current.isAfter(fin)) {
@@ -234,13 +293,14 @@ public class CongeService {
         // Audit trail
         logStatutTransition(savedConge, ancienStatut, StatutConge.ANNULE, email, "Annulation par l'employé");
 
+        publishLeaveEvent(LeaveEvent.Type.CANCELLED, savedConge);
+
         log.info("Congé {} annulé", id);
         return congeMapper.toDTO(savedConge);
     }
 
     private void deduireDuSolde(Conge conge) {
-        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge.getDateDebut(), conge.getDateFin(),
-                conge.getType().isCompteWeekend());
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, conge.getType().isCompteWeekend());
 
         double totalTakenSpecific = 0.0;
         double totalTakenCP = 0.0;
@@ -300,8 +360,7 @@ public class CongeService {
     }
 
     private void recrediterLeSolde(Conge conge) {
-        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge.getDateDebut(), conge.getDateFin(),
-                conge.getType().isCompteWeekend());
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, conge.getType().isCompteWeekend());
 
         double remainingSpecific = conge.getJoursDeductionSpecifique() != null ? conge.getJoursDeductionSpecifique()
                 : 0.0;
@@ -584,16 +643,54 @@ public class CongeService {
                 .build();
     }
 
-    private void validateDates(LocalDate debut, LocalDate fin) {
+    private void validateDates(CongeRequest request, Conge.DureeType dureeType) {
+        LocalDate debut = request.getDateDebut();
+        LocalDate fin = request.getDateFin();
+
         if (debut == null || fin == null) {
             throw new BusinessException("Les dates sont obligatoires");
         }
         if (fin.isBefore(debut)) {
             throw new BusinessException("La date de fin doit être après la date de début");
         }
-        // Permettre de prendre un congé à partir d'aujourd'hui
         if (debut.isBefore(LocalDate.now())) {
             throw new BusinessException("La date de début ne peut pas être dans le passé");
+        }
+
+        if (dureeType == Conge.DureeType.DEMI_JOUR_MATIN || dureeType == Conge.DureeType.DEMI_JOUR_APRES_MIDI) {
+            ensureSameDay(debut, fin, "Un congé demi-journée doit être sur une seule journée");
+        }
+
+        if (dureeType == Conge.DureeType.PAR_HEURE) {
+            ensureSameDay(debut, fin, "Un congé horaire doit être sur une seule journée");
+            LocalTime hDebut = request.getHeureDebut();
+            LocalTime hFin = request.getHeureFin();
+            if (hDebut == null || hFin == null) {
+                throw new BusinessException("Les heures de début et fin sont obligatoires pour un congé horaire");
+            }
+            if (!hDebut.isBefore(hFin)) {
+                throw new BusinessException("L'heure de début doit être avant l'heure de fin");
+            }
+        }
+    }
+
+    private void ensureSameDay(LocalDate debut, LocalDate fin, String message) {
+        if (debut == null || fin == null) {
+            throw new BusinessException(message);
+        }
+        if (!debut.isEqual(fin)) {
+            throw new BusinessException(message);
+        }
+    }
+
+    private Conge.DureeType parseDureeType(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Conge.DureeType.JOURNEE_ENTIERE;
+        }
+        try {
+            return Conge.DureeType.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return Conge.DureeType.JOURNEE_ENTIERE;
         }
     }
 
@@ -618,5 +715,106 @@ public class CongeService {
                 .build();
         congeHistoriqueRepository.save(historique);
         log.debug("Transition enregistrée: {} -> {} par {}", statutPrecedent, statutNouveau, acteur);
+    }
+
+    private void publishLeaveEvent(LeaveEvent.Type type, Conge conge) {
+        LeaveEvent event = new LeaveEvent(
+                type,
+                conge.getId(),
+                conge.getEmploye() != null ? conge.getEmploye().getEmail() : null,
+                conge.getType() != null ? conge.getType().getCode() : null,
+                conge.getStatut(),
+                conge.getNombreJours(),
+                LocalDateTime.now()
+        );
+        eventPublisher.publishEvent(event);
+    }
+
+    public CongeStatsResponse getStatistics(CongeReportRequest request) {
+        List<Conge> conges = filterConges(request);
+        
+        Map<String, Long> parStatut = conges.stream()
+                .collect(Collectors.groupingBy(c -> c.getStatut().name(), Collectors.counting()));
+        
+        Map<String, Long> parType = conges.stream()
+                .filter(c -> c.getType() != null)
+                .collect(Collectors.groupingBy(c -> c.getType().getCode(), Collectors.counting()));
+        
+        Map<String, Double> joursParType = conges.stream()
+                .filter(c -> c.getType() != null)
+                .collect(Collectors.groupingBy(
+                        c -> c.getType().getCode(),
+                        Collectors.summingDouble(Conge::getNombreJours)
+                ));
+        
+        double totalJours = conges.stream()
+                .filter(c -> StatutConge.APPROUVE.equals(c.getStatut()))
+                .mapToDouble(Conge::getNombreJours)
+                .sum();
+        
+        return CongeStatsResponse.builder()
+                .totalDemandes(conges.size())
+                .demandesEnAttente(parStatut.getOrDefault("EN_ATTENTE", 0L))
+                .demandesApprouvees(parStatut.getOrDefault("APPROUVE", 0L))
+                .demandesRejetees(parStatut.getOrDefault("REJETE", 0L))
+                .demandesAnnulees(parStatut.getOrDefault("ANNULE", 0L))
+                .totalJoursConsommes(totalJours)
+                .parType(parType)
+                .parStatut(parStatut)
+                .joursParType(joursParType)
+                .build();
+    }
+
+    public List<CongeResponse> getReport(CongeReportRequest request) {
+        List<Conge> conges = filterConges(request);
+        return conges.stream()
+                .map(congeMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    private List<Conge> filterConges(CongeReportRequest request) {
+        List<Conge> conges = congeRepository.findAll();
+        
+        if (request.getDateDebut() != null && request.getDateFin() != null) {
+            conges = conges.stream()
+                    .filter(c -> !c.getDateDebut().isAfter(request.getDateFin()) 
+                              && !c.getDateFin().isBefore(request.getDateDebut()))
+                    .collect(Collectors.toList());
+        }
+        
+        if (request.getTypeConge() != null && !request.getTypeConge().isBlank()) {
+            conges = conges.stream()
+                    .filter(c -> c.getType() != null 
+                              && c.getType().getCode().equalsIgnoreCase(request.getTypeConge()))
+                    .collect(Collectors.toList());
+        }
+        
+        if (request.getStatut() != null && !request.getStatut().isBlank()) {
+            try {
+                StatutConge statut = StatutConge.valueOf(request.getStatut().toUpperCase());
+                conges = conges.stream()
+                        .filter(c -> c.getStatut() == statut)
+                        .collect(Collectors.toList());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid status filter: {}", request.getStatut());
+            }
+        }
+        
+        if (request.getDepartementId() != null) {
+            conges = conges.stream()
+                    .filter(c -> c.getEmploye() != null 
+                              && c.getEmploye().getDepartement() != null
+                              && c.getEmploye().getDepartement().getId().equals(request.getDepartementId()))
+                    .collect(Collectors.toList());
+        }
+        
+        if (request.getEmployeId() != null) {
+            conges = conges.stream()
+                    .filter(c -> c.getEmploye() != null 
+                              && c.getEmploye().getId().equals(request.getEmployeId()))
+                    .collect(Collectors.toList());
+        }
+        
+        return conges;
     }
 }

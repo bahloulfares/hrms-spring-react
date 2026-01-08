@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { getPostes, deletePoste } from '../api';
 import { Modal } from '../../../components/common/Modal';
 import { JobForm } from './JobForm';
@@ -32,8 +33,9 @@ export const JobsPage = () => {
             try {
                 await deletePoste(id);
                 queryClient.invalidateQueries({ queryKey: ['postes'] });
+                toast.success('Poste supprimé avec succès');
             } catch (err) {
-                alert('Erreur lors de la suppression');
+                toast.error('Erreur lors de la suppression');
             }
         }
     };

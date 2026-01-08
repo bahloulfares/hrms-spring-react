@@ -9,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 
 @Entity
@@ -67,6 +68,24 @@ public class Conge {
 
     @Column
     private Double joursDeductionCP;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, name = "duree_type")
+    @Builder.Default
+    private DureeType dureeType = DureeType.JOURNEE_ENTIERE;
+
+    @Column(name = "heure_debut")
+    private LocalTime heureDebut;
+
+    @Column(name = "heure_fin")
+    private LocalTime heureFin;
+
+    public enum DureeType {
+        JOURNEE_ENTIERE,
+        DEMI_JOUR_MATIN,
+        DEMI_JOUR_APRES_MIDI,
+        PAR_HEURE
+    }
 
     // Méthode utilitaire pour calculer le nombre de jours (utilisée avant la
     // persistance)

@@ -35,5 +35,6 @@ public class CreateUtilisateurRequest {
     @NotNull(message = "Au moins un rôle est obligatoire")
     @NotEmpty(message = "Au moins un rôle est obligatoire")
     private Set<Role> roles;
+    @Builder.Default
     private Boolean actif = true;
 }
