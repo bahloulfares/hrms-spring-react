@@ -3,12 +3,26 @@ import type { Poste, CreatePosteRequest } from '../types';
 
 export const getPostes = async (): Promise<Poste[]> => {
     const response = await axiosClient.get('/postes');
-    return response.data;
+    if (Array.isArray(response.data)) {
+        return response.data;
+    }
+    if (response.data && Array.isArray(response.data.content)) {
+        return response.data.content;
+    }
+    console.warn('[API] getPostes: unexpected response structure', response.data);
+    return [];
 };
 
 export const getPostesByDepartement = async (departementId: number): Promise<Poste[]> => {
     const response = await axiosClient.get(`/postes/departement/${departementId}`);
-    return response.data;
+    if (Array.isArray(response.data)) {
+        return response.data;
+    }
+    if (response.data && Array.isArray(response.data.content)) {
+        return response.data.content;
+    }
+    console.warn('[API] getPostesByDepartement: unexpected response structure', response.data);
+    return [];
 };
 
 export const createPoste = async (data: CreatePosteRequest): Promise<Poste> => {

@@ -9,11 +9,23 @@ import type {
     CongeStatsResponse
 } from '../types';
 
+export interface CongeHistorique {
+    id: number;
+    statutPrecedent: string | null;
+    statutNouveau: string;
+    acteur: string; // Email
+    acteurNom: string; // Nom complet
+    dateModification: string; // ISO date format
+    commentaire: string | null;
+}
+
 export const leaveApi = {
     // Demandes personnelles
     getMyLeaves: async (): Promise<Conge[]> => {
         const response = await axiosClient.get('/conges/mes-conges');
-        return response.data;
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
     },
 
     createLeaveRequest: async (data: CreateCongeRequest): Promise<Conge> => {
@@ -26,23 +38,49 @@ export const leaveApi = {
         return response.data;
     },
 
+    // Historique et détails
+    getLeaveHistory: async (id: number): Promise<CongeHistorique[]> => {
+        const response = await axiosClient.get(`/conges/${id}/historique`);
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
+    },
+
+    getLeaveDetails: async (id: number): Promise<Conge> => {
+        const response = await axiosClient.get(`/conges/${id}`);
+        return response.data;
+    },
+
     // Soldes et Types
     getMyBalances: async (): Promise<SoldeConge[]> => {
         // Pour l'instant, on n'a pas d'endpoint dédié, on pourrait en créer un ou utiliser un filtre
         // En attendant, on va imaginer qu'on a /conges/mes-soldes
         const response = await axiosClient.get('/conges/mes-soldes');
-        return response.data;
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
+    },
+
+    getEmployeeBalances: async (employeId: number): Promise<SoldeConge[]> => {
+        const response = await axiosClient.get(`/conges/soldes/employe/${employeId}`);
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
     },
 
     getLeaveTypes: async (): Promise<TypeConge[]> => {
         const response = await axiosClient.get('/conges/types');
-        return response.data;
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
     },
 
     // Validation (Managers/Admins)
     getPendingRequests: async (): Promise<Conge[]> => {
         const response = await axiosClient.get('/conges/en-attente');
-        return response.data;
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
     },
 
     validateRequest: async (id: number, data: ValidationCongeRequest): Promise<Conge> => {
@@ -52,13 +90,17 @@ export const leaveApi = {
 
     getAllLeaves: async (): Promise<Conge[]> => {
         const response = await axiosClient.get('/conges/all');
-        return response.data;
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
     },
 
     // Admin Specific - Configuration
     getAdminTypes: async (): Promise<TypeConge[]> => {
         const response = await axiosClient.get('/admin/type-conges');
-        return response.data;
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
     },
 
     createType: async (data: Partial<TypeConge>): Promise<TypeConge> => {
@@ -83,7 +125,9 @@ export const leaveApi = {
 
     getReport: async (payload: CongeReportRequest): Promise<Conge[]> => {
         const response = await axiosClient.post('/conges/report/export', payload);
-        return response.data;
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
     },
 
     exportCsv: async (payload: CongeReportRequest): Promise<Blob> => {

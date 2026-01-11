@@ -23,7 +23,7 @@ public class AuthController {
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         LoginResponse loginResponse = authenticationService.authenticate(request);
 
-        // Création du Cookie HttpOnly
+        // Création du Cookie HttpOnly (sécurisé, pas accessible au JavaScript)
         ResponseCookie cookie = ResponseCookie.from("token", loginResponse.getToken())
                 .httpOnly(true)
                 .secure(false) // Mettre à true en Production (HTTPS)
@@ -34,7 +34,7 @@ public class AuthController {
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-        // On vide le token du corps de la réponse pour ne pas l'exposer
+        // Ne PAS renvoyer le token dans le corps (plus sécurisé)
         loginResponse.setToken(null);
 
         return ResponseEntity.ok(loginResponse);
@@ -54,7 +54,7 @@ public class AuthController {
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-        // On évite de renvoyer le token en clair dans le corps
+        // Ne pas renvoyer le token dans le corps (sécurité)
         loginResponse.setToken(null);
 
         return ResponseEntity.ok(loginResponse);

@@ -32,6 +32,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8088',
         changeOrigin: true,
+        // Vite's ProxyOptions does not support 'pathRewrite'.
+        // Keep the path as-is by omitting rewrite; requests to /api/* go to target /api/*.
+        // If a custom rewrite is needed, use the 'rewrite' function:
+        // rewrite: (path) => path,
+        autoRewrite: true,
       },
     },
   },

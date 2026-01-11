@@ -34,8 +34,16 @@ public class AffectationHistoryServiceImpl implements AffectationHistoryService 
     private AffectationHistoryDTO convertToDTO(AffectationHistory history) {
         AffectationHistoryDTO dto = new AffectationHistoryDTO();
         dto.setId(history.getId());
-        dto.setUtilisateurId(history.getUtilisateur().getId());
-        dto.setEmployeNomComplet(history.getUtilisateur().getNomComplet());
+        
+        // Handle null utilisateur gracefully
+        if (history.getUtilisateur() != null) {
+            dto.setUtilisateurId(history.getUtilisateur().getId());
+            dto.setEmployeNomComplet(history.getUtilisateur().getNomComplet());
+        } else {
+            dto.setUtilisateurId(null);
+            dto.setEmployeNomComplet("Utilisateur supprimé");
+        }
+        
         dto.setOldDepartement(history.getOldDepartement());
         dto.setNewDepartement(history.getNewDepartement());
         dto.setOldPoste(history.getOldPoste());

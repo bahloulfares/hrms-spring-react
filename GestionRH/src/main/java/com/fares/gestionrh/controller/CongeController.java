@@ -16,6 +16,7 @@ import com.fares.gestionrh.dto.conge.CongeResponse;
 import com.fares.gestionrh.dto.conge.CongeStatsResponse;
 import com.fares.gestionrh.dto.conge.SoldeCongeResponse;
 import com.fares.gestionrh.dto.conge.ValidationCongeRequest;
+import com.fares.gestionrh.dto.conge.CongeHistoriqueDTO;
 import com.fares.gestionrh.service.CongeService;
 import com.fares.gestionrh.service.CsvExportService;
 
@@ -57,6 +58,14 @@ public class CongeController {
     @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN', 'RH')")
     public ResponseEntity<CongeResponse> getCongeById(@PathVariable Long id) {
         return ResponseEntity.ok(congeService.getCongeById(id));
+    }
+
+    @GetMapping("/{id}/historique")
+    @PreAuthorize("hasAnyRole('EMPLOYE', 'MANAGER', 'ADMIN', 'RH')")
+    public ResponseEntity<List<CongeHistoriqueDTO>> getHistorique(
+            @PathVariable Long id,
+            Authentication auth) {
+        return ResponseEntity.ok(congeService.getHistorique(id, auth.getName()));
     }
 
     @DeleteMapping("/{id}")

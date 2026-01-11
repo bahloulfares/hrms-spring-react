@@ -1,12 +1,10 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { UnauthorizedPage } from './components/common/UnauthorizedPage';
-import { useAppSelector, useAppDispatch } from './store/hooks';
-import { checkAuth } from './features/auth/authSlice';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { useAuthStore } from './store/auth';
+import { LoginPage } from './pages/LoginPage';
 
-const LoginForm = lazy(() => import('./features/auth/components/LoginForm').then(m => ({ default: m.LoginForm })));
 const DashboardLayout = lazy(() => import('./components/layout/DashboardLayout').then(m => ({ default: m.DashboardLayout })));
 const DepartmentsPage = lazy(() => import('./features/departments/components/DepartmentsPage').then(m => ({ default: m.DepartmentsPage })));
 const JobsPage = lazy(() => import('./features/jobs/components/JobsPage').then(m => ({ default: m.JobsPage })));
@@ -20,39 +18,12 @@ const DashboardHomePage = lazy(() => import('./features/leaves/components/Dashbo
 const LeaveStatsPage = lazy(() => import('./features/leaves/components/LeaveStatsPage').then(m => ({ default: m.LeaveStatsPage })));
 const SettingsPage = lazy(() => import('./features/settings/components/SettingsPage'));
 
-// Enhanced Protected Route Component with Role Support
-const ProtectedRoute = ({ children, requiredRoles }: { children: React.ReactNode, requiredRoles?: string[] }) => {
-  const { isAuthenticated, isLoading, user } = useAppSelector((state) => state.auth);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Check roles if required
-  if (requiredRoles && user) {
-    const hasRequiredRole = user.roles.some(role => requiredRoles.includes(role));
-    if (!hasRequiredRole) {
-      return <UnauthorizedPage />;
-    }
-  }
-
-  return <>{children}</>;
-};
-
 function App() {
-  const dispatch = useAppDispatch();
-
-  React.useEffect(() => {
-    dispatch(checkAuth());
-  }, [dispatch]);
+  // Initialiser l'auth une seule fois au mount
+  useEffect(() => {
+    const { initializeAuth } = useAuthStore.getState()
+    initializeAuth()
+  }, [])  // ✅ Empty deps: exécuté UNE SEULE FOIS au mount
 
   return (
     <BrowserRouter>
@@ -85,7 +56,7 @@ function App() {
         }
       >
         <Routes>
-          <Route path="/login" element={<LoginForm />} />
+          <Route path="/login" element={<LoginPage />} />
 
           {/* Base Dashboard Route */}
           <Route

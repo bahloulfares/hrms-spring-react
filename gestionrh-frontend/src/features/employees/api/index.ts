@@ -3,7 +3,18 @@ import type { Employee, CreateEmployeeRequest } from '../types';
 
 export const getEmployees = async (): Promise<Employee[]> => {
     const response = await axiosClient.get('/employes');
-    return response.data;
+    // Le backend retourne une Page<Employe> ou un array?
+    // Si c'est un objet avec .content (pagination), extraire le tableau
+    if (Array.isArray(response.data)) {
+        return response.data;
+    }
+    // Si c'est un Page object
+    if (response.data && Array.isArray(response.data.content)) {
+        return response.data.content;
+    }
+    // Fallback: retourner vide si structure inattendue
+    console.warn('[API] getEmployees: unexpected response structure', response.data);
+    return [];
 };
 
 export const getEmployee = async (id: number): Promise<Employee> => {

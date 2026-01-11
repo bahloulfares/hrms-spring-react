@@ -116,10 +116,24 @@ public class NotificationService {
         StringBuilder sb = new StringBuilder();
         sb.append("Type: ").append(event.getType()).append('\n');
         sb.append("Leave ID: ").append(event.getLeaveId()).append('\n');
-        sb.append("Status: ").append(event.getStatus()).append('\n');
-        sb.append("Duration (days): ").append(event.getDurationDays()).append('\n');
-        sb.append("Leave type: ").append(event.getLeaveTypeCode()).append('\n');
-        sb.append("Employee: ").append(event.getEmployeeEmail());
+        sb.append("Status: ").append(event.getStatus() != null ? event.getStatus() : 
+                 event.getStatutConge() != null ? event.getStatutConge() : "N/A").append('\n');
+        if (event.getDurationDays() > 0) {
+            sb.append("Duration (days): ").append(event.getDurationDays()).append('\n');
+        }
+        if (event.getLeaveType() != null) {
+            sb.append("Leave type: ").append(event.getLeaveType()).append('\n');
+        } else if (event.getLeaveTypeCode() != null) {
+            sb.append("Leave type: ").append(event.getLeaveTypeCode()).append('\n');
+        }
+        if (event.getEmployeeName() != null) {
+            sb.append("Employee: ").append(event.getEmployeeName()).append(" (").append(event.getEmployeeEmail()).append(")");
+        } else {
+            sb.append("Employee: ").append(event.getEmployeeEmail());
+        }
+        if (event.getStartDate() != null && event.getEndDate() != null) {
+            sb.append('\n').append("Period: ").append(event.getStartDate()).append(" to ").append(event.getEndDate());
+        }
         return sb.toString();
     }
 }

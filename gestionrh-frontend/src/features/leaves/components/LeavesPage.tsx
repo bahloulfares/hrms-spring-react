@@ -2,14 +2,19 @@ import { useState, memo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../api';
 import {
-    Calendar, Plus, Clock, CheckCircle2, XCircle
+    Calendar, Plus, Clock, CheckCircle2, XCircle, Eye
 } from 'lucide-react';
 import { Modal } from '../../../components/common/Modal';
+import LeaveHistoryModal from './LeaveHistoryModal';
+import LeaveDetailsModal from './LeaveDetailsModal';
 import { LeaveRequestForm } from './LeaveRequestForm';
 import type { Conge, SoldeConge } from '../types';
 
 const LeavesPageComponent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [selectedLeaveId, setSelectedLeaveId] = useState<number | null>(null);
     const [scrollTop, setScrollTop] = useState(0);
     const [containerHeight, setContainerHeight] = useState(600);
     const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -211,19 +216,46 @@ const LeavesPageComponent = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {(leave.statut === 'EN_ATTENTE' || leave.statut === 'APPROUVE') && (
+                                            <div className="flex items-center justify-end gap-3">
+                                                {/* Détails */}
                                                 <button
                                                     onClick={() => {
-                                                        if (window.confirm('Annuler cette demande ?')) {
-                                                            cancelMutation.mutate(leave.id);
-                                                        }
+                                                        setSelectedLeaveId(leave.id);
+                                                        setIsDetailsOpen(true);
                                                     }}
-                                                    className="text-gray-400 hover:text-red-500 transition-colors"
-                                                    title="Annuler"
+                                                    className="text-gray-400 hover:text-gray-900 transition-colors"
+                                                    title="Voir les détails"
                                                 >
-                                                    <XCircle className="w-5 h-5" />
+                                                    <Eye className="w-5 h-5" />
                                                 </button>
-                                            )}
+
+                                                {/* Historique (toujours disponible) */}
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedLeaveId(leave.id);
+                                                        setIsHistoryOpen(true);
+                                                    }}
+                                                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                                                    title="Voir l'historique"
+                                                >
+                                                    <Clock className="w-5 h-5" />
+                                                </button>
+
+                                                {/* Annuler (si en attente ou approuvé) */}
+                                                {(leave.statut === 'EN_ATTENTE' || leave.statut === 'APPROUVE') && (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (window.confirm('Annuler cette demande ?')) {
+                                                                cancelMutation.mutate(leave.id);
+                                                            }
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                                        title="Annuler"
+                                                    >
+                                                        <XCircle className="w-5 h-5" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -245,6 +277,24 @@ const LeavesPageComponent = () => {
             >
                 <LeaveRequestForm onSuccess={() => setIsModalOpen(false)} />
             </Modal>
+
+            {/* Modal Historique */}
+            {selectedLeaveId !== null && (
+                <LeaveHistoryModal
+                    isOpen={isHistoryOpen}
+                    onClose={() => setIsHistoryOpen(false)}
+                    leaveId={selectedLeaveId}
+                />
+            )}
+
+            {/* Modal Détails avec onglets (Info, Historique, Solde) */}
+            {selectedLeaveId !== null && (
+                <LeaveDetailsModal
+                    isOpen={isDetailsOpen}
+                    onClose={() => setIsDetailsOpen(false)}
+                    leaveId={selectedLeaveId}
+                />
+            )}
         </div>
     );
 };

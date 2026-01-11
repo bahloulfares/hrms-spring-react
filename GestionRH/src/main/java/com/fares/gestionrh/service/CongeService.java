@@ -120,7 +120,7 @@ public class CongeService {
         conge.setNombreJours(totalJours);
         Conge saved = congeRepository.save(conge);
 
-        publishLeaveEvent(LeaveEvent.Type.CREATED, saved);
+        publishLeaveEvent(LeaveEvent.EventType.CREATED, saved);
 
         log.info("Congé créé: {} pour {}", saved.getId(), email);
         return congeMapper.toDTO(saved);
@@ -200,9 +200,9 @@ public class CongeService {
         logStatutTransition(savedConge, ancienStatut, nouveauStatut, validateurEmail, request.getCommentaire());
 
         // Notifications
-        LeaveEvent.Type evtType = StatutConge.APPROUVE.equals(nouveauStatut)
-            ? LeaveEvent.Type.VALIDATED
-            : LeaveEvent.Type.REJECTED;
+        LeaveEvent.EventType evtType = StatutConge.APPROUVE.equals(nouveauStatut)
+            ? LeaveEvent.EventType.APPROVED
+            : LeaveEvent.EventType.REJECTED;
         publishLeaveEvent(evtType, savedConge);
 
         log.info("Congé {} {} par {}", id, nouveauStatut, validateurEmail);
@@ -293,7 +293,7 @@ public class CongeService {
         // Audit trail
         logStatutTransition(savedConge, ancienStatut, StatutConge.ANNULE, email, "Annulation par l'employé");
 
-        publishLeaveEvent(LeaveEvent.Type.CANCELLED, savedConge);
+        publishLeaveEvent(LeaveEvent.EventType.CANCELLED, savedConge);
 
         log.info("Congé {} annulé", id);
         return congeMapper.toDTO(savedConge);
@@ -717,16 +717,20 @@ public class CongeService {
         log.debug("Transition enregistrée: {} -> {} par {}", statutPrecedent, statutNouveau, acteur);
     }
 
-    private void publishLeaveEvent(LeaveEvent.Type type, Conge conge) {
-        LeaveEvent event = new LeaveEvent(
-                type,
-                conge.getId(),
-                conge.getEmploye() != null ? conge.getEmploye().getEmail() : null,
-                conge.getType() != null ? conge.getType().getCode() : null,
-                conge.getStatut(),
-                conge.getNombreJours(),
-                LocalDateTime.now()
-        );
+    private void publishLeaveEvent(LeaveEvent.EventType type, Conge conge) {
+        LeaveEvent event = LeaveEvent.builder()
+                .type(type)
+                .leaveId(conge.getId())
+                .employeeName(conge.getEmploye() != null ? conge.getEmploye().getNomComplet() : null)
+                .employeeEmail(conge.getEmploye() != null ? conge.getEmploye().getEmail() : null)
+                .leaveType(conge.getType() != null ? conge.getType().getNom() : null)
+                .leaveTypeCode(conge.getType() != null ? conge.getType().getCode() : null)
+                .statutConge(conge.getStatut())
+                .startDate(conge.getDateDebut())
+                .endDate(conge.getDateFin())
+                .durationDays(conge.getNombreJours())
+                .createdAt(LocalDateTime.now())
+                .build();
         eventPublisher.publishEvent(event);
     }
 
@@ -816,5 +820,81 @@ public class CongeService {
         }
         
         return conges;
+    }
+
+    /**
+     * Récupère l'historique complet d'une demande de congé avec vérification des permissions
+     * 
+     * @param congeId ID de la demande de congé
+     * @param email Email de l'utilisateur demandeur
+     * @return Liste des entrées d'historique (triée chronologiquement décroissante)
+     * @throws ResourceNotFoundException si le congé n'existe pas
+     * @throws BusinessException si l'utilisateur n'a pas accès à cet historique
+     */
+    @Transactional(readOnly = true)
+    public List<com.fares.gestionrh.dto.conge.CongeHistoriqueDTO> getHistorique(Long congeId, String email) {
+        // Récupérer le congé
+        Conge conge = congeRepository.findById(congeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conge", "id", congeId));
+        
+        // Récupérer l'utilisateur demandeur
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", email));
+        
+        // Vérifier les permissions
+        boolean isAdmin = utilisateur.getRoles().contains(com.fares.gestionrh.entity.Role.ADMIN);
+        boolean isRH = utilisateur.getRoles().contains(com.fares.gestionrh.entity.Role.RH);
+        
+        if (!isAdmin && !isRH) {
+            // Un employé ne peut voir que ses propres congés
+            if (!conge.getEmploye().getId().equals(utilisateur.getId())) {
+                // Un manager peut voir les congés de son département
+                boolean isManager = utilisateur.getRoles().contains(com.fares.gestionrh.entity.Role.MANAGER);
+                if (isManager) {
+                    Long managerDeptId = utilisateur.getDepartement() != null 
+                        ? utilisateur.getDepartement().getId() 
+                        : null;
+                    Long employeDeptId = conge.getEmploye().getDepartement() != null 
+                        ? conge.getEmploye().getDepartement().getId() 
+                        : null;
+                    
+                    if (managerDeptId == null || !managerDeptId.equals(employeDeptId)) {
+                        throw new BusinessException("Accès refusé. Vous ne pouvez consulter que les congés de votre département.");
+                    }
+                } else {
+                    throw new BusinessException("Accès refusé. Vous ne pouvez consulter que vos propres congés.");
+                }
+            }
+        }
+        
+        // Récupérer l'historique
+        List<CongeHistorique> historique = congeHistoriqueRepository
+                .findByCongeIdOrderByDateModificationDesc(congeId);
+        
+        // Convertir en DTO
+        return historique.stream()
+                .map(this::toCongeHistoriqueDTO)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Convertit une entité CongeHistorique en DTO
+     */
+    private com.fares.gestionrh.dto.conge.CongeHistoriqueDTO toCongeHistoriqueDTO(CongeHistorique historique) {
+        // Récupérer l'utilisateur qui a effectué l'action
+        Utilisateur acteur = utilisateurRepository.findByEmail(historique.getActeur()).orElse(null);
+        String acteurNom = (acteur != null) 
+            ? acteur.getPrenom() + " " + acteur.getNom()
+            : historique.getActeur();
+        
+        return com.fares.gestionrh.dto.conge.CongeHistoriqueDTO.builder()
+                .id(historique.getId())
+                .statutPrecedent(historique.getStatutPrecedent())
+                .statutNouveau(historique.getStatutNouveau())
+                .acteur(historique.getActeur())
+                .acteurNom(acteurNom)
+                .dateModification(historique.getDateModification())
+                .commentaire(historique.getCommentaire())
+                .build();
     }
 }

@@ -55,15 +55,15 @@ class LeaveEventListenerIntegrationTest {
     @Test
     @DisplayName("Leave events trigger email notifications")
     void listenerDispatchesEmailNotification() throws Exception {
-        LeaveEvent event = new LeaveEvent(
-                LeaveEvent.Type.CREATED,
-                42L,
-                "emp@example.com",
-                "CP",
-                StatutConge.EN_ATTENTE,
-                1.0,
-                LocalDateTime.now()
-        );
+        LeaveEvent event = LeaveEvent.builder()
+                .type(LeaveEvent.EventType.CREATED)
+                .leaveId(42L)
+                .employeeEmail("emp@example.com")
+                .leaveTypeCode("CP")
+                .statutConge(StatutConge.EN_ATTENTE)
+                .durationDays(1.0)
+                .createdAt(LocalDateTime.now())
+                .build();
 
         publisher.publishEvent(event);
 

@@ -104,6 +104,14 @@ axiosClient.interceptors.response.use(
         // ERREUR 401 - UNAUTHORIZED
         // ========================================
         if (error.response?.status === 401) {
+            // ⚠️ NE PAS rediriger pour /auth/me (initialization)
+            // Sinon: boucle infinie de redirects
+            if (config?.url?.includes('/auth/me')) {
+                logger.debug('[API] ✗ 401 /auth/me - No active session (normal)');
+                return Promise.reject(error);
+            }
+            
+            // Pour les autres requêtes: redirect vers login
             logger.debug('[API] ✗ 401 Unauthorized - Redirection login');
             window.location.href = '/login';
             return Promise.reject(error);
