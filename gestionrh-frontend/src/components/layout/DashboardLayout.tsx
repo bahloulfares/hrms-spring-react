@@ -3,6 +3,8 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { logoutUser } from '../../features/auth/authSlice';
 import { User, LogOut, Settings, ChevronDown, Bell, Search } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { NotificationDropdown } from '../notifications/NotificationDropdown';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export const DashboardLayout = () => {
     const dispatch = useAppDispatch();
@@ -10,8 +12,10 @@ export const DashboardLayout = () => {
     const navigate = useNavigate();
     const { user } = useAppSelector((state) => state.auth);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
+    const { unreadCount } = useNotifications();
 
     // Handle Escape key to close menu
     useEffect(() => {
@@ -107,13 +111,29 @@ export const DashboardLayout = () => {
                     </div>
 
                     <div className="flex items-center gap-3 md:gap-6">
-                        <button 
-                            aria-label="Notifications"
-                            className="relative p-2 rounded-xl hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <Bell className="w-5 h-5 text-slate-500" aria-hidden="true" />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" aria-label="Nouvelle notification"></span>
-                        </button>
+                        {/* Notifications */}
+                        <div className="relative">
+                            <button 
+                                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                                aria-label={`${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}`}
+                                aria-expanded={isNotificationOpen}
+                                className={`relative p-2 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    isNotificationOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-500'
+                                }`}
+                            >
+                                <Bell className="w-5 h-5" aria-hidden="true" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center px-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white">
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                            
+                            <NotificationDropdown 
+                                isOpen={isNotificationOpen} 
+                                onClose={() => setIsNotificationOpen(false)} 
+                            />
+                        </div>
 
                         <div className="h-8 w-[1px] bg-slate-200 hidden md:block"></div>
 

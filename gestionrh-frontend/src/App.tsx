@@ -3,7 +3,11 @@ import { Suspense, lazy, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthStore } from './store/auth';
+import { useAppDispatch } from './store/hooks';
+import { checkAuth } from './features/auth/authSlice';
 import { LoginPage } from './pages/LoginPage';
+import { UnauthorizedPage } from './pages/UnauthorizedPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 const DashboardLayout = lazy(() => import('./components/layout/DashboardLayout').then(m => ({ default: m.DashboardLayout })));
 const DepartmentsPage = lazy(() => import('./features/departments/components/DepartmentsPage').then(m => ({ default: m.DepartmentsPage })));
@@ -18,15 +22,17 @@ const DashboardHomePage = lazy(() => import('./features/leaves/components/Dashbo
 const LeaveStatsPage = lazy(() => import('./features/leaves/components/LeaveStatsPage').then(m => ({ default: m.LeaveStatsPage })));
 const SettingsPage = lazy(() => import('./features/settings/components/SettingsPage'));
 
-function App() {
-  // Initialiser l'auth une seule fois au mount
+function AppContent() {
+  const dispatch = useAppDispatch();
+  
+  // Initialize Redux auth state from /auth/me endpoint on app mount
   useEffect(() => {
-    const { initializeAuth } = useAuthStore.getState()
-    initializeAuth()
-  }, [])  // ✅ Empty deps: exécuté UNE SEULE FOIS au mount
+    console.log('[App] Dispatching checkAuth thunk to populate Redux store');
+    dispatch(checkAuth());
+  }, [dispatch])
 
   return (
-    <BrowserRouter>
+    <>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -57,6 +63,7 @@ function App() {
       >
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
           {/* Base Dashboard Route */}
           <Route
@@ -104,8 +111,23 @@ function App() {
           </Route>
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
+    </>
+  );
+}
+
+function App() {
+  // Initialiser l'auth une seule fois au mount (Zustand)
+  useEffect(() => {
+    const { initializeAuth } = useAuthStore.getState()
+    initializeAuth()
+  }, [])  // ✅ Empty deps: exécuté UNE SEULE FOIS au mount
+
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }

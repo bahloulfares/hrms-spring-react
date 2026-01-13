@@ -6,7 +6,7 @@ ALTER TABLE `type_conges`
 ADD COLUMN `actif` BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- 2. Créer la table conge_historique pour l'audit trail
-CREATE TABLE `conge_historique` (
+CREATE TABLE IF NOT EXISTS `conge_historique` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `conge_id` BIGINT NOT NULL,
     `statut_precedent` VARCHAR(50),
