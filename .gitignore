@@ -1,0 +1,46 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# Backend
+GestionRH/target/
+GestionRH/build/
+GestionRH/.gradle/
+*.jar
+*.war
+
+# Frontend
+gestionrh-frontend/node_modules/
+gestionrh-frontend/dist/
+gestionrh-frontend/build/
+gestionrh-frontend/coverage/
+.pnpm-store/
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Testing
+.nyc_output/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp

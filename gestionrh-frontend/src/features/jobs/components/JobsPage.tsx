@@ -4,12 +4,16 @@ import toast from 'react-hot-toast';
 import { getPostes, deletePoste } from '../api';
 import { Modal } from '../../../components/common/Modal';
 import { JobForm } from './JobForm';
+import { JobDetailModal } from './JobDetailModal';
+import { exportToExcel, exportToPdf } from '../../../utils/exportUtils';
 import type { Poste } from '../types';
-import { Briefcase, Building2, Coins, Search, Plus, Trash2, Edit3 } from 'lucide-react';
+import { Briefcase, Building2, Coins, Search, Plus, Trash2, Edit3, Eye, FileDown, FileSpreadsheet } from 'lucide-react';
 
 export const JobsPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedJob, setSelectedJob] = useState<Poste | null>(null);
+    const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const queryClient = useQueryClient();
 
@@ -18,9 +22,22 @@ export const JobsPage = () => {
         queryFn: getPostes,
     });
 
+    const filteredPostes = useMemo(() => {
+        if (!postes) return [];
+        return postes.filter(p =>
+            p.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.departementNom?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [postes, searchQuery]);
+
     const handleCreate = () => {
         setSelectedJob(null);
         setIsModalOpen(true);
+    };
+
+    const handleViewDetail = (jobId: number) => {
+        setSelectedJobId(jobId);
+        setIsDetailModalOpen(true);
     };
 
     const handleEdit = (job: Poste) => {
@@ -40,31 +57,53 @@ export const JobsPage = () => {
         }
     };
 
+    const handleExport = (type: 'pdf' | 'excel') => {
+        if (!filteredPostes.length) {
+            toast.error('Aucune donnée à exporter');
+            return;
+        }
+
+        const columns = [
+            { header: 'Titre', formatter: (p: Poste) => p.titre },
+            { header: 'Département', formatter: (p: Poste) => p.departementNom || 'Sans Département' },
+            {
+                header: 'Salaire (min-max)',
+                formatter: (p: Poste) => `${p.salaireMin?.toLocaleString('fr-FR') || ''} - ${p.salaireMax?.toLocaleString('fr-FR') || ''}`,
+            },
+            { header: 'Description', formatter: (p: Poste) => p.description || '' },
+        ];
+
+        const base = {
+            title: 'Liste des Postes',
+            columns,
+            data: filteredPostes,
+            fileName: `postes_${new Date().toISOString().slice(0, 10)}`,
+            orientation: 'landscape' as const,
+        };
+
+        if (type === 'pdf') {
+            exportToPdf(base);
+        } else {
+            exportToExcel(base);
+        }
+    };
+
     // Grouping and Sorting Logic
     const groupedPostes = useMemo(() => {
-        if (!postes) return {};
-
-        const filtered = postes.filter(p =>
-            p.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.departementNom?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-
-        const groups = filtered.reduce((acc, job) => {
+        const groups = filteredPostes.reduce((acc, job) => {
             const dept = job.departementNom || 'Sans Département';
             if (!acc[dept]) acc[dept] = [];
             acc[dept].push(job);
             return acc;
         }, {} as Record<string, Poste[]>);
 
-        // Sort departments
         const sortedGroups: Record<string, Poste[]> = {};
         Object.keys(groups).sort().forEach(dept => {
-            // Sort jobs within department
             sortedGroups[dept] = groups[dept].sort((a, b) => a.titre.localeCompare(b.titre));
         });
 
         return sortedGroups;
-    }, [postes, searchQuery]);
+    }, [filteredPostes]);
 
     if (isLoading) return (
         <div className="flex justify-center items-center h-64">
@@ -86,13 +125,29 @@ export const JobsPage = () => {
                     <h2 className="text-2xl font-bold text-gray-900">Gestion des Postes</h2>
                     <p className="text-sm text-gray-500">Gérez les postes et leurs affectations par département.</p>
                 </div>
-                <button
-                    onClick={handleCreate}
-                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                    <Plus className="w-5 h-5" />
-                    Nouveau Poste
-                </button>
+                <div className="flex flex-wrap gap-2 justify-end">
+                    <button
+                        onClick={() => handleExport('pdf')}
+                        className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-lg font-semibold border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                        <FileDown className="w-4 h-4" />
+                        Export PDF
+                    </button>
+                    <button
+                        onClick={() => handleExport('excel')}
+                        className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-lg font-semibold border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Export Excel
+                    </button>
+                    <button
+                        onClick={handleCreate}
+                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Nouveau Poste
+                    </button>
+                </div>
             </div>
 
             <div className="relative">
@@ -143,6 +198,13 @@ export const JobsPage = () => {
 
                                         <div className="flex justify-end gap-2 pt-4 border-t border-gray-50 mt-auto">
                                             <button
+                                                onClick={() => handleViewDetail(job.id)}
+                                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                title="Voir les détails"
+                                            >
+                                                <Eye className="w-5 h-5" />
+                                            </button>
+                                            <button
                                                 onClick={() => handleEdit(job)}
                                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                                                 title="Modifier"
@@ -178,6 +240,15 @@ export const JobsPage = () => {
                     }}
                 />
             </Modal>
+
+            <JobDetailModal
+                isOpen={isDetailModalOpen}
+                jobId={selectedJobId}
+                onClose={() => {
+                    setIsDetailModalOpen(false);
+                    setSelectedJobId(null);
+                }}
+            />
         </div>
     );
 };

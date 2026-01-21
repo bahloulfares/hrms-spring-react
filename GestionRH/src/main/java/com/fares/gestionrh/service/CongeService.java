@@ -196,8 +196,12 @@ public class CongeService {
 
         Conge savedConge = congeRepository.save(conge);
 
-        // Audit trail
-        logStatutTransition(savedConge, ancienStatut, nouveauStatut, validateurEmail, request.getCommentaire());
+        // Audit trail - temporarily wrapped in try-catch to allow app startup
+        try {
+            logStatutTransition(savedConge, ancienStatut, nouveauStatut, validateurEmail, request.getCommentaire());
+        } catch (Exception e) {
+            log.warn("Audit logging failed (table may not exist yet): {}", e.getMessage());
+        }
 
         // Notifications
         LeaveEvent.EventType evtType = StatutConge.APPROUVE.equals(nouveauStatut)
@@ -290,8 +294,13 @@ public class CongeService {
 
         Conge savedConge = congeRepository.save(conge);
 
-        // Audit trail
-        logStatutTransition(savedConge, ancienStatut, StatutConge.ANNULE, email, "Annulation par l'employé");
+        // Audit trail - temporarily disabled to allow app startup while conge_historique table is being created
+        // TODO: Re-enable after Flyway migrations complete
+        try {
+            logStatutTransition(savedConge, ancienStatut, StatutConge.ANNULE, email, "Annulation par l'employé");
+        } catch (Exception e) {
+            log.warn("Audit logging failed (table may not exist yet): {}", e.getMessage());
+        }
 
         publishLeaveEvent(LeaveEvent.EventType.CANCELLED, savedConge);
 

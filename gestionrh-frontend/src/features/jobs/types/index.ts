@@ -6,6 +6,8 @@ export type Poste = {
     salaireMax?: number;
     departementId: number;
     departementNom?: string;
+    createdAt?: string;
+    updatedAt?: string;
 };
 
 export type CreatePosteRequest = {

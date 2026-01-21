@@ -4,6 +4,8 @@ export type Departement = {
     description?: string;
     managerId?: number;
     managerNom?: string;
+    createdAt?: string;
+    updatedAt?: string;
 };
 
 export type CreateDepartementRequest = {

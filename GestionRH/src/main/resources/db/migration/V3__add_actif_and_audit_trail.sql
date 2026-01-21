@@ -1,9 +1,17 @@
 -- Migration pour ajouter le champ actif sur type_conges
 -- et créer la table conge_historique pour l'audit trail
 
--- 1. Ajouter le champ actif à type_conges
-ALTER TABLE `type_conges`
-ADD COLUMN `actif` BOOLEAN NOT NULL DEFAULT TRUE;
+-- 1. Ajouter le champ actif à type_conges (conditionally - check if it exists first)
+SET @col_exists := 0;
+SELECT COUNT(*) INTO @col_exists FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_SCHEMA = DATABASE() 
+AND TABLE_NAME = 'type_conges' 
+AND COLUMN_NAME = 'actif';
+
+SET @sql := IF(@col_exists = 0, 'ALTER TABLE `type_conges` ADD COLUMN `actif` BOOLEAN NOT NULL DEFAULT TRUE', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 2. Créer la table conge_historique pour l'audit trail
 CREATE TABLE IF NOT EXISTS `conge_historique` (

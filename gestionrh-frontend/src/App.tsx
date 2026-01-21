@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuthStore } from './store/auth';
 import { useAppDispatch } from './store/hooks';
 import { checkAuth } from './features/auth/authSlice';
@@ -20,6 +21,7 @@ const LeaveTypesConfigPage = lazy(() => import('./features/leaves/components/Lea
 const ProfilePage = lazy(() => import('./features/auth/components/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const DashboardHomePage = lazy(() => import('./features/leaves/components/DashboardHomePage').then(m => ({ default: m.DashboardHomePage })));
 const LeaveStatsPage = lazy(() => import('./features/leaves/components/LeaveStatsPage').then(m => ({ default: m.LeaveStatsPage })));
+const AuditHistoryPage = lazy(() => import('./features/leaves/components/AuditHistoryPage').then(m => ({ default: m.AuditHistoryPage })));
 const SettingsPage = lazy(() => import('./features/settings/components/SettingsPage'));
 
 function AppContent() {
@@ -73,6 +75,7 @@ function AppContent() {
                 <DashboardLayout />
               </ProtectedRoute>
             }
+            errorElement={<ErrorBoundary />}
           >
             <Route index element={<DashboardHomePage />} />
 
@@ -97,6 +100,10 @@ function AppContent() {
 
             <Route path="leaves/stats" element={
               <ProtectedRoute requiredRoles={['ADMIN', 'RH', 'MANAGER']}><LeaveStatsPage /></ProtectedRoute>
+            } />
+
+            <Route path="audit-history" element={
+              <ProtectedRoute requiredRoles={['ADMIN', 'RH']}><AuditHistoryPage /></ProtectedRoute>
             } />
 
             {/* Admin Only Routes */}

@@ -43,16 +43,16 @@ public class Notification {
     private Conge conge;
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @Column(name = "date_creation", nullable = false, updatable = false)
     private LocalDateTime dateCreation;
 
     // Données dénormalisées pour affichage rapide (évite les jointures)
-    @Column
+    @Column(name = "employe_nom")
     private String employeNom;
 
-    @Column
+    @Column(name = "type_conge")
     private String typeConge;
 
-    @Column
+    @Column(name = "action_par")
     private String actionPar; // Nom de la personne qui a effectué l'action (pour validation)
 }

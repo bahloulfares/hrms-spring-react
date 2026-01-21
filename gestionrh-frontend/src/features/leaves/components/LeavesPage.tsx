@@ -75,6 +75,8 @@ const LeavesPageComponent = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my-leaves'] });
             queryClient.invalidateQueries({ queryKey: ['my-balances'] });
+            // Invalider aussi la liste des demandes en attente pour les admins/managers
+            queryClient.invalidateQueries({ queryKey: ['pending-leaves'] });
         },
         onError: (_error, _leaveId, context) => {
             // Rollback to the previous value on error

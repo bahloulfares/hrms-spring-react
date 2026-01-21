@@ -42,7 +42,7 @@ public class NotificationPersistenceService {
 
         Notification notification = Notification.builder()
                 .utilisateur(recipient)
-                .type(event.getType().name())
+                .type(mapEventTypeToDbValue(event.getType()))
                 .titre(titre)
                 .message(message)
                 .lue(false)
@@ -165,6 +165,14 @@ public class NotificationPersistenceService {
             case CANCELLED -> String.format("La demande de %s de %s du %s au %s a été annulée",
                     leaveType, employeeName, event.getStartDate(), event.getEndDate());
         };
+    }
+
+    /**
+     * Maps EventType enum to database notification type values
+     * EventType.CREATED -> "LEAVE_CREATED", etc.
+     */
+    private String mapEventTypeToDbValue(LeaveEvent.EventType eventType) {
+        return "LEAVE_" + eventType.name();
     }
 
     private NotificationDTO toDTO(Notification notification) {

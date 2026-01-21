@@ -1,29 +1,32 @@
-import { useState, useMemo, memo, useRef, useEffect } from 'react';
+import { useState, useMemo, memo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { getEmployees, deleteEmployee } from '../api';
 import { Modal } from '../../../components/common/Modal';
 import { EmployeeForm } from './EmployeeForm';
+import { EmployeeDetailModal } from './EmployeeDetailModal';
 import { getDepartements } from '../../departments/api';
 import { getPostes } from '../../jobs/api';
+import { usePagination } from '../../../hooks/usePagination';
+import { PaginationControls } from '../../../components/PaginationControls';
+import { exportToExcel, exportToPdf } from '../../../utils/exportUtils';
 import type { Employee } from '../types';
 import {
     Search, Plus, Mail, Phone, Building2, Briefcase,
-    Edit3, Trash2, Filter, User
+    Edit3, Trash2, Filter, User, Eye, FileDown, FileSpreadsheet
 } from 'lucide-react';
-
-const ROW_HEIGHT = 88;
-const OVERSCAN = 8;
 
 const EmployeesPageComponent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [deptFilter, setDeptFilter] = useState('');
     const [jobFilter, setJobFilter] = useState('');
-    const [scrollTop, setScrollTop] = useState(0);
-    const [containerHeight, setContainerHeight] = useState(600);
-    const tableContainerRef = useRef<HTMLDivElement>(null);
+    
+    // ✅ Pagination avec React Query
+    const pagination = usePagination({ pageSize: 10 });
 
     const queryClient = useQueryClient();
 
@@ -35,42 +38,7 @@ const EmployeesPageComponent = () => {
     const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: getDepartements });
     const { data: postes } = useQuery({ queryKey: ['postes'], queryFn: getPostes });
 
-    useEffect(() => {
-        const el = tableContainerRef.current;
-        if (!el) return;
-
-        const updateHeight = () => setContainerHeight(el.clientHeight || 600);
-        updateHeight();
-
-        const resizeObserver = new ResizeObserver(updateHeight);
-        resizeObserver.observe(el);
-
-        return () => resizeObserver.disconnect();
-    }, []);
-
-    const handleCreate = () => {
-        setSelectedEmployee(null);
-        setIsModalOpen(true);
-    };
-
-    const handleEdit = (employee: Employee) => {
-        setSelectedEmployee(employee);
-        setIsModalOpen(true);
-    };
-
-    const handleDelete = async (id: number) => {
-        if (window.confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
-            try {
-                await deleteEmployee(id);
-                queryClient.invalidateQueries({ queryKey: ['employees'] });
-                toast.success('Employé supprimé avec succès');
-            } catch (err) {
-                toast.error('Erreur lors de la suppression');
-            }
-        }
-    };
-
-    // Advanced Filtering Logic
+    // ✅ Filtrage
     const filteredEmployees = useMemo(() => {
         if (!employees) return [];
 
@@ -78,7 +46,6 @@ const EmployeesPageComponent = () => {
             const matchesSearch =
                 emp.nomComplet.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 emp.email.toLowerCase().includes(searchQuery.toLowerCase());
-
             const matchesDept = !deptFilter || emp.departement === deptFilter;
             const matchesJob = !jobFilter || emp.poste === jobFilter;
 
@@ -86,12 +53,79 @@ const EmployeesPageComponent = () => {
         }).sort((a, b) => a.nom.localeCompare(b.nom));
     }, [employees, searchQuery, deptFilter, jobFilter]);
 
-    const totalEmployees = filteredEmployees.length;
-    const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT) + OVERSCAN;
-    const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-    const endIndex = Math.min(totalEmployees, startIndex + visibleCount);
-    const topSpacer = startIndex * ROW_HEIGHT;
-    const bottomSpacer = Math.max(0, (totalEmployees - endIndex) * ROW_HEIGHT);
+    // ✅ Mettre à jour le total après filtrage
+    useEffect(() => {
+        pagination.setTotal(filteredEmployees.length, Math.ceil(filteredEmployees.length / pagination.size));
+    }, [filteredEmployees.length, pagination.size]);
+
+    // ✅ Récupérer les employés pour la page courante
+    const paginatedEmployees = useMemo(() => {
+        const start = pagination.page * pagination.size;
+        const end = start + pagination.size;
+        return filteredEmployees.slice(start, end);
+    }, [filteredEmployees, pagination.page, pagination.size]);
+
+    // ✅ Actions
+    const handleCreate = () => {
+        setSelectedEmployee(null);
+        setIsModalOpen(true);
+    };
+
+    const handleEdit = (employee: Employee) => {
+        // Open detail modal instead of form modal
+        setSelectedEmployeeId(employee.id);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleViewDetail = (employeeId: number) => {
+        setSelectedEmployeeId(employeeId);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleDelete = async (id: number) => {
+        if (window.confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
+            try {
+                await deleteEmployee(id);
+                queryClient.invalidateQueries({ queryKey: ['employees'] });
+                pagination.reset(); // Réinitialiser pagination après suppression
+                toast.success('Employé supprimé avec succès');
+            } catch (err) {
+                toast.error('Erreur lors de la suppression');
+            }
+        }
+    };
+
+    const handleExport = (type: 'pdf' | 'excel') => {
+        if (!filteredEmployees.length) {
+            toast.error('Aucune donnée à exporter');
+            return;
+        }
+
+        const columns = [
+            { header: 'Nom complet', formatter: (e: Employee) => e.nomComplet },
+            { header: 'Email', formatter: (e: Employee) => e.email },
+            { header: 'Téléphone', formatter: (e: Employee) => e.telephone || '' },
+            { header: 'Poste', formatter: (e: Employee) => e.poste || '' },
+            { header: 'Département', formatter: (e: Employee) => e.departement || '' },
+            { header: 'Rôles', formatter: (e: Employee) => e.roles?.join(', ') || '' },
+            { header: 'Statut', formatter: (e: Employee) => (e.actif ? 'Actif' : 'Inactif') },
+        ];
+
+        const base = {
+            title: "Liste des Employés",
+            columns,
+            data: filteredEmployees,
+            fileName: `employes_${new Date().toISOString().slice(0, 10)}`,
+            orientation: 'landscape' as const,
+        };
+
+        if (type === 'pdf') {
+            exportToPdf(base);
+        } else {
+            exportToExcel(base);
+        }
+    };
+
 
     // Role Color Mapping
     const getRoleColor = (role: string) => {
@@ -125,13 +159,29 @@ const EmployeesPageComponent = () => {
                     <h2 className="text-2xl font-bold text-gray-900">Effectifs</h2>
                     <p className="text-sm text-gray-500">Gérez les informations et les accès des collaborateurs.</p>
                 </div>
-                <button
-                    onClick={handleCreate}
-                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                    <Plus className="w-5 h-5" />
-                    Nouvel Employé
-                </button>
+                <div className="flex flex-wrap gap-2 justify-end">
+                    <button
+                        onClick={() => handleExport('pdf')}
+                        className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-lg font-semibold border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                        <FileDown className="w-4 h-4" />
+                        Export PDF
+                    </button>
+                    <button
+                        onClick={() => handleExport('excel')}
+                        className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-lg font-semibold border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Export Excel
+                    </button>
+                    <button
+                        onClick={handleCreate}
+                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Nouvel Employé
+                    </button>
+                </div>
             </div>
 
             {/* Filtering Controls */}
@@ -173,11 +223,7 @@ const EmployeesPageComponent = () => {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div
-                    ref={tableContainerRef}
-                    className="overflow-auto max-h-[640px]"
-                    onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
-                >
+                <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-100">
                         <thead className="bg-gray-50/50">
                             <tr>
@@ -188,53 +234,45 @@ const EmployeesPageComponent = () => {
                                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                    </table>
-                    <div className="relative" style={{ height: totalEmployees * ROW_HEIGHT }}>
-                        <table className="min-w-full divide-y divide-gray-100 absolute top-0 left-0">
-                            <tbody className="divide-y divide-gray-50">
-                                {topSpacer > 0 && (
-                                    <tr style={{ height: topSpacer }}>
-                                        <td colSpan={5} />
-                                    </tr>
-                                )}
-                                {filteredEmployees.slice(startIndex, endIndex).map((emp) => (
-                                    <tr key={emp.id} className="hover:bg-blue-50/20 transition-colors group" style={{ height: ROW_HEIGHT }}>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-10 w-10 flex-shrink-0">
-                                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
-                                                        {emp.nom[0]}{emp.prenom[0]}
-                                                    </div>
-                                                </div>
-                                                <div className="ml-4">
-                                                    <div className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{emp.nomComplet}</div>
-                                                    <div className="text-[11px] text-gray-400 font-medium">ID: #{emp.id}</div>
+                        <tbody className="divide-y divide-gray-50">
+                            {paginatedEmployees.map((emp) => (
+                                <tr key={emp.id} className="hover:bg-blue-50/20 transition-colors group">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                            <div className="h-10 w-10 flex-shrink-0">
+                                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
+                                                    {emp.nom[0]}{emp.prenom[0]}
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                    <Mail className="w-3.5 h-3.5 text-gray-400" />
-                                                    <span>{emp.email}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                    <Phone className="w-3.5 h-3.5 text-gray-400" />
-                                                    <span>{emp.telephone || 'Non renseigné'}</span>
-                                                </div>
+                                            <div className="ml-4">
+                                                <div className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{emp.nomComplet}</div>
+                                                <div className="text-[11px] text-gray-400 font-medium">ID: #{emp.id}</div>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                                                    <Briefcase className="w-3.5 h-3.5 text-blue-500" />
-                                                    <span>{emp.poste || <span className="text-gray-300 font-normal">Sans poste</span>}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                    <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                                                    <span>{emp.departement || <span className="text-gray-300">Aucun</span>}</span>
-                                                </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <Mail className="w-3.5 h-3.5 text-gray-400" />
+                                                <span>{emp.email}</span>
                                             </div>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                <Phone className="w-3.5 h-3.5 text-gray-400" />
+                                                <span>{emp.telephone || 'Non renseigné'}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                                <Briefcase className="w-3.5 h-3.5 text-blue-500" />
+                                                <span>{emp.poste || <span className="text-gray-300 font-normal">Sans poste</span>}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                                                <span>{emp.departement || <span className="text-gray-300">Aucun</span>}</span>
+                                            </div>
+                                        </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-wrap gap-1">
@@ -251,8 +289,15 @@ const EmployeesPageComponent = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">
                                                 <button
-                                                    onClick={() => handleEdit(emp)}
+                                                    onClick={() => handleViewDetail(emp.id)}
                                                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                    title="Voir détails"
+                                                >
+                                                    <Eye className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleEdit(emp)}
+                                                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
                                                     title="Modifier"
                                                 >
                                                     <Edit3 className="w-5 h-5" />
@@ -268,23 +313,20 @@ const EmployeesPageComponent = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {bottomSpacer > 0 && (
-                                    <tr style={{ height: bottomSpacer }}>
-                                        <td colSpan={5} />
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
+                
+                {/* ✅ Pagination Controls */}
+                <PaginationControls pagination={pagination} pageSizes={[5, 10, 25, 50]} />
             </div>
 
-            {filteredEmployees.length === 0 && (
+            {pagination.isEmpty && (
                 <div className="p-12 text-center">
                     <User className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                     <p className="text-gray-500 font-medium">Aucun collaborateur ne correspond aux critères.</p>
                     <button
-                        onClick={() => { setSearchQuery(''); setDeptFilter(''); setJobFilter(''); }}
+                        onClick={() => { setSearchQuery(''); setDeptFilter(''); setJobFilter(''); pagination.reset(); }}
                         className="mt-2 text-blue-600 text-sm font-semibold hover:underline"
                     >
                         Réinitialiser les filtres
@@ -305,6 +347,13 @@ const EmployeesPageComponent = () => {
                     }}
                 />
             </Modal>
+
+            {/* Detail Modal */}
+            <EmployeeDetailModal
+                isOpen={isDetailModalOpen}
+                employeeId={selectedEmployeeId}
+                onClose={() => setIsDetailModalOpen(false)}
+            />
         </div>
     );
 };

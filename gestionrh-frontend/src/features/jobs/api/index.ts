@@ -13,6 +13,11 @@ export const getPostes = async (): Promise<Poste[]> => {
     return [];
 };
 
+export const getPoste = async (id: number): Promise<Poste> => {
+    const response = await axiosClient.get(`/postes/${id}`);
+    return response.data;
+};
+
 export const getPostesByDepartement = async (departementId: number): Promise<Poste[]> => {
     const response = await axiosClient.get(`/postes/departement/${departementId}`);
     if (Array.isArray(response.data)) {

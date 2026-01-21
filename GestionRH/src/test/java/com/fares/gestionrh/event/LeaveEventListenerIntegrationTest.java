@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -54,6 +55,7 @@ class LeaveEventListenerIntegrationTest {
 
     @Test
     @DisplayName("Leave events trigger email notifications")
+    @Transactional
     void listenerDispatchesEmailNotification() throws Exception {
         LeaveEvent event = LeaveEvent.builder()
                 .type(LeaveEvent.EventType.CREATED)
@@ -67,7 +69,8 @@ class LeaveEventListenerIntegrationTest {
 
         publisher.publishEvent(event);
 
-        boolean mailReceived = greenMail.waitForIncomingEmail(5000, 1);
+        // Wait for the transactional event to be processed after transaction commit
+        boolean mailReceived = greenMail.waitForIncomingEmail(10000, 1);
         assertThat(mailReceived).isTrue();
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertThat(messages).hasSize(1);
