@@ -6,12 +6,14 @@ import { PaginationControls } from '../../../components/PaginationControls';
 import type { StatutConge } from '../types';
 import { Calendar, Filter, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthCheck } from '@/hooks/useAuthCheck';
 
 /**
  * Page d'Audit Trail - Affiche l'historique de tous les changements de congés
  * Permet de filtrer par acteur, type d'action, et date
  */
 export const AuditHistoryPage = () => {
+    const { isAuthorized } = useAuthCheck({ requiredRoles: ['ADMIN', 'RH'] });
     // État des filtres
     const [filterActor, setFilterActor] = useState<string>('');
     const [filterStatus, setFilterStatus] = useState<StatutConge | ''>('');
@@ -54,6 +56,8 @@ export const AuditHistoryPage = () => {
         pagination.goToPage(0);
         toast.success('Filtres réinitialisés');
     };
+
+    if (!isAuthorized) return null;
 
     if (isLoading) return (
         <div className="flex justify-center items-center h-64">

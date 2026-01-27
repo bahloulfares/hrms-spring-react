@@ -1,11 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Home, Mail, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { useAppSelector } from '@/store/hooks';
+import { useAuthStore } from '@/store/auth';
 
 export const UnauthorizedPage = () => {
     const navigate = useNavigate();
-    const { user } = useAppSelector((state) => state.auth);
+    const { user } = useAuthStore();
+    const displayName = [user?.prenom, user?.nom].filter(Boolean).join(' ').trim() || 'Non identifié';
+    const displayRoles = user?.roles?.join(', ') || 'EMPLOYE';
 
     const handleGoBack = () => {
         navigate(-1);
@@ -54,7 +56,7 @@ export const UnauthorizedPage = () => {
                                     </h3>
                                     <p className="text-sm text-orange-800 leading-relaxed">
                                         La page ou la fonctionnalité que vous essayez d'accéder nécessite des privilèges
-                                        spécifiques. Votre rôle actuel <span className="font-bold">({user?.roles?.join(', ') || 'EMPLOYE'})</span> ne 
+                                        spécifiques. Votre rôle actuel <span className="font-bold">({displayRoles})</span> ne 
                                         dispose pas des autorisations requises.
                                     </p>
                                 </div>
@@ -66,11 +68,11 @@ export const UnauthorizedPage = () => {
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <span className="text-slate-500 font-medium block mb-1">Utilisateur</span>
-                                    <span className="text-slate-900 font-bold">{user?.nomComplet || 'Non identifié'}</span>
+                                    <span className="text-slate-900 font-bold">{displayName}</span>
                                 </div>
                                 <div>
                                     <span className="text-slate-500 font-medium block mb-1">Rôle(s)</span>
-                                    <span className="text-slate-900 font-bold">{user?.roles?.join(', ') || 'EMPLOYE'}</span>
+                                    <span className="text-slate-900 font-bold">{displayRoles}</span>
                                 </div>
                             </div>
                         </div>

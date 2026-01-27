@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import { addUnauthorizedInterceptor } from './authorizationInterceptor';
 import { logger } from '@/utils/logger';
 
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8088/api';
@@ -20,6 +21,9 @@ export const axiosClient: AxiosInstance = axios.create({
     withCredentials: true,
     timeout: 30000, // 30 secondes
 });
+
+// Intercepteur global pour 401/403 (toast + logout + redirection)
+addUnauthorizedInterceptor(axiosClient);
 
 /**
  * Configuration du retry
@@ -99,31 +103,6 @@ axiosClient.interceptors.response.use(
     async (error: AxiosError) => {
         const config = error.config as RetryConfig;
         const retryCount = config?.retryCount || 0;
-
-        // ========================================
-        // ERREUR 401 - UNAUTHORIZED
-        // ========================================
-        if (error.response?.status === 401) {
-            // ⚠️ NE PAS rediriger pour /auth/me (initialization)
-            // Sinon: boucle infinie de redirects
-            if (config?.url?.includes('/auth/me')) {
-                logger.debug('[API] ✗ 401 /auth/me - No active session (normal)');
-                return Promise.reject(error);
-            }
-            
-            // Pour les autres requêtes: redirect vers login
-            logger.debug('[API] ✗ 401 Unauthorized - Redirection login');
-            window.location.href = '/login';
-            return Promise.reject(error);
-        }
-
-        // ========================================
-        // ERREUR 403 - FORBIDDEN
-        // ========================================
-        if (error.response?.status === 403) {
-            logger.debug('[API] ✗ 403 Forbidden - Accès refusé');
-            return Promise.reject(error);
-        }
 
         // ========================================
         // ERREUR 404 - NOT FOUND

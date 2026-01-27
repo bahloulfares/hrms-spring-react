@@ -15,8 +15,12 @@ import {
     Search, Plus, Mail, Phone, Building2, Briefcase,
     Edit3, Trash2, Filter, User, Eye, FileDown, FileSpreadsheet
 } from 'lucide-react';
+import { useAuthCheck } from '@/hooks/useAuthCheck';
+import { useDataAccess } from '@/hooks/useAuthCheck';
 
 const EmployeesPageComponent = () => {
+    const { isAuthorized } = useAuthCheck({ requiredRoles: ['ADMIN', 'RH', 'MANAGER'] });
+    const { canViewAllEmails, canViewAllPhones, canManageRoles } = useDataAccess();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -103,11 +107,11 @@ const EmployeesPageComponent = () => {
 
         const columns = [
             { header: 'Nom complet', formatter: (e: Employee) => e.nomComplet },
-            { header: 'Email', formatter: (e: Employee) => e.email },
-            { header: 'Téléphone', formatter: (e: Employee) => e.telephone || '' },
+            ...(canViewAllEmails ? [{ header: 'Email', formatter: (e: Employee) => e.email }] : []),
+            ...(canViewAllPhones ? [{ header: 'Téléphone', formatter: (e: Employee) => e.telephone || '' }] : []),
             { header: 'Poste', formatter: (e: Employee) => e.poste || '' },
             { header: 'Département', formatter: (e: Employee) => e.departement || '' },
-            { header: 'Rôles', formatter: (e: Employee) => e.roles?.join(', ') || '' },
+            ...(canManageRoles ? [{ header: 'Rôles', formatter: (e: Employee) => e.roles?.join(', ') || '' }] : []),
             { header: 'Statut', formatter: (e: Employee) => (e.actif ? 'Actif' : 'Inactif') },
         ];
 
@@ -137,6 +141,8 @@ const EmployeesPageComponent = () => {
         }
     };
 
+    if (!isAuthorized) return null;
+
     if (isLoading) return (
         <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -153,30 +159,35 @@ const EmployeesPageComponent = () => {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Effectifs</h2>
-                    <p className="text-sm text-gray-500">Gérez les informations et les accès des collaborateurs.</p>
+        <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                    <div className="p-4 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl shadow-xl shadow-blue-200/50">
+                        <User className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <h2 className="text-3xl font-black text-slate-800 tracking-tight">Effectifs</h2>
+                        <p className="text-sm text-slate-600 font-medium mt-1">Gérez les informations et les accès des collaborateurs</p>
+                    </div>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-end">
+                <div className="flex flex-wrap gap-3 justify-end">
                     <button
                         onClick={() => handleExport('pdf')}
-                        className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-lg font-semibold border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-2 bg-white text-slate-700 px-5 py-3 rounded-xl font-bold border-2 border-slate-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 transition-all shadow-sm hover:shadow-md"
                     >
-                        <FileDown className="w-4 h-4" />
+                        <FileDown className="w-5 h-5" />
                         Export PDF
                     </button>
                     <button
                         onClick={() => handleExport('excel')}
-                        className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-lg font-semibold border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-2 bg-white text-slate-700 px-5 py-3 rounded-xl font-bold border-2 border-slate-200 hover:border-green-300 hover:bg-green-50 hover:text-green-600 transition-all shadow-sm hover:shadow-md"
                     >
-                        <FileSpreadsheet className="w-4 h-4" />
+                        <FileSpreadsheet className="w-5 h-5" />
                         Export Excel
                     </button>
                     <button
                         onClick={handleCreate}
-                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-3 rounded-xl font-black hover:shadow-xl hover:scale-105 transition-all shadow-lg shadow-blue-200/50"
                     >
                         <Plus className="w-5 h-5" />
                         Nouvel Employé
@@ -185,10 +196,12 @@ const EmployeesPageComponent = () => {
             </div>
 
             {/* Filtering Controls */}
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 text-gray-400 mb-2">
-                    <Filter className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Filtres de recherche</span>
+            <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-lg space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                        <Filter className="w-5 h-5" />
+                    </div>
+                    <span className="text-sm font-black text-slate-700 uppercase tracking-wider">Filtres de recherche</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="relative">
@@ -222,19 +235,19 @@ const EmployeesPageComponent = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-3xl border-2 border-slate-100 shadow-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-100">
-                        <thead className="bg-gray-50/50">
+                    <table className="min-w-full divide-y divide-slate-100">
+                        <thead className="bg-gradient-to-r from-slate-50 to-blue-50">
                             <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Collaborateur</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Affectation</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Accès</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Collaborateur</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Contact</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Affectation</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Accès</th>
+                                <th className="px-6 py-5 text-right text-xs font-black text-slate-700 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-slate-50">
                             {paginatedEmployees.map((emp) => (
                                 <tr key={emp.id} className="hover:bg-blue-50/20 transition-colors group">
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -252,14 +265,29 @@ const EmployeesPageComponent = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex flex-col gap-1">
-                                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                <Mail className="w-3.5 h-3.5 text-gray-400" />
-                                                <span>{emp.email}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                <Phone className="w-3.5 h-3.5 text-gray-400" />
-                                                <span>{emp.telephone || 'Non renseigné'}</span>
-                                            </div>
+                                            {canViewAllEmails ? (
+                                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                    <Mail className="w-3.5 h-3.5 text-gray-400" />
+                                                    <span>{emp.email}</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                    <Mail className="w-3.5 h-3.5 text-gray-300" />
+                                                    <span>Email masqué</span>
+                                                </div>
+                                            )}
+
+                                            {canViewAllPhones ? (
+                                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                    <Phone className="w-3.5 h-3.5 text-gray-400" />
+                                                    <span>{emp.telephone || 'Non renseigné'}</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                    <Phone className="w-3.5 h-3.5 text-gray-300" />
+                                                    <span>Téléphone masqué</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -275,16 +303,20 @@ const EmployeesPageComponent = () => {
                                         </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex flex-wrap gap-1">
-                                                {emp.roles.map(role => (
-                                                    <span
-                                                        key={role}
-                                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getRoleColor(role)} uppercase tracking-tighter`}
-                                                    >
-                                                        {role}
-                                                    </span>
-                                                ))}
-                                            </div>
+                                            {canManageRoles ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {emp.roles.map(role => (
+                                                        <span
+                                                            key={role}
+                                                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getRoleColor(role)} uppercase tracking-tighter`}
+                                                        >
+                                                            {role}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-gray-400">Accès limité</span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">

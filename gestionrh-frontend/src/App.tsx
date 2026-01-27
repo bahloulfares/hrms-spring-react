@@ -4,8 +4,6 @@ import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuthStore } from './store/auth';
-import { useAppDispatch } from './store/hooks';
-import { checkAuth } from './features/auth/authSlice';
 import { LoginPage } from './pages/LoginPage';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -25,13 +23,13 @@ const AuditHistoryPage = lazy(() => import('./features/leaves/components/AuditHi
 const SettingsPage = lazy(() => import('./features/settings/components/SettingsPage'));
 
 function AppContent() {
-  const dispatch = useAppDispatch();
+  const initializeAuth = useAuthStore(s => s.initializeAuth);
   
-  // Initialize Redux auth state from /auth/me endpoint on app mount
+  // Initialize Zustand auth state from /auth/me endpoint on app mount
   useEffect(() => {
-    console.log('[App] Dispatching checkAuth thunk to populate Redux store');
-    dispatch(checkAuth());
-  }, [dispatch])
+    console.log('[App] Initializing auth from session');
+    initializeAuth();
+  }, [initializeAuth])
 
   return (
     <>

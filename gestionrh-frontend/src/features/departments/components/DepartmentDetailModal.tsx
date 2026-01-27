@@ -4,22 +4,29 @@ import { X, Edit2, Save, AlertCircle, Loader } from 'lucide-react';
 import { getDepartement, updateDepartement } from '../api';
 import type { Departement } from '../types';
 import { Modal } from '../../../components/common/Modal';
+import { useAuthStore } from '../../../store/auth';
 import toast from 'react-hot-toast';
 
 interface DepartmentDetailModalProps {
   isOpen: boolean;
   departmentId: number | null;
   onClose: () => void;
+  isReadOnly?: boolean; // Mode consultation (Eye icon)
 }
 
 export const DepartmentDetailModal: React.FC<DepartmentDetailModalProps> = ({
   isOpen,
   departmentId,
   onClose,
+  isReadOnly = true, // Par défaut, consultation
 }) => {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
   const [isEditMode, setIsEditMode] = useState(false);
   const [editData, setEditData] = useState<Partial<Departement> | null>(null);
+
+  // ✅ Vérifier si l'utilisateur peut modifier (ADMIN ou RH)
+  const canEdit = !isReadOnly && (user?.roles?.includes('ADMIN') || user?.roles?.includes('RH'));
 
   const { data: department, isLoading, isError, error } = useQuery({
     queryKey: ['departement', departmentId],
@@ -112,26 +119,28 @@ export const DepartmentDetailModal: React.FC<DepartmentDetailModalProps> = ({
                 )}
               </div>
 
-              <button
-                onClick={handleEditToggle}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  isEditMode
-                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                }`}
-              >
-                {isEditMode ? (
-                  <>
-                    <X className="w-4 h-4" />
-                    Annuler
-                  </>
-                ) : (
-                  <>
-                    <Edit2 className="w-4 h-4" />
-                    Modifier
-                  </>
-                )}
-              </button>
+              {canEdit && (
+                <button
+                  onClick={handleEditToggle}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                    isEditMode
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                  }`}
+                >
+                  {isEditMode ? (
+                    <>
+                      <X className="w-4 h-4" />
+                      Annuler
+                    </>
+                  ) : (
+                    <>
+                      <Edit2 className="w-4 h-4" />
+                      Modifier
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4">

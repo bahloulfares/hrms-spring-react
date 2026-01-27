@@ -43,6 +43,26 @@ class WebSocketService {
      * Construit l'URL WebSocket en fonction de l'environnement
      */
     private buildWebSocketUrl(): string {
+        // 1) URL explicite via env (recommandé en prod) ex: ws://api.example.com/notifications/ws
+        const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
+        if (envUrl && envUrl.trim().length > 0) {
+            return envUrl.trim();
+        }
+
+        // 2) Dérive depuis VITE_API_URL si présent (conserve host/port) et force ws/wss
+        const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+        if (apiUrl) {
+            try {
+                const parsed = new URL(apiUrl);
+                const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+                const basePath = parsed.pathname.replace(/\/$/, '');
+                return `${wsProtocol}//${parsed.host}${basePath}/notifications/ws`;
+            } catch (err) {
+                console.warn('[WebSocket] Invalid VITE_API_URL, fallback to window host', err);
+            }
+        }
+
+        // 3) Fallback: même host que le front (proxy Vite en dev)
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
         return `${protocol}//${host}/api/notifications/ws`;
@@ -93,8 +113,12 @@ class WebSocketService {
                 this.notifyConnectionChange(false);
             };
 
-            this.ws.onclose = () => {
-                console.log('[WebSocket] Closed');
+            this.ws.onclose = (event) => {
+                console.log('[WebSocket] Closed', {
+                    code: event.code,
+                    reason: event.reason,
+                    wasClean: event.wasClean,
+                });
                 this.stopHeartbeat();
                 this.notifyConnectionChange(false);
 

@@ -24,6 +24,8 @@ import {
 import { Download, BarChart3, PieChart as PieIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useAuthCheck } from '@/hooks/useAuthCheck';
+import { useAuthStore } from '@/store/auth';
 
 const STATUT_OPTIONS = [
     { value: '', label: 'Tous les statuts' },
@@ -38,15 +40,20 @@ const COLORS = ['#2563eb', '#14b8a6', '#f59e0b', '#ef4444', '#6366f1', '#22c55e'
 const toISODate = (date: Date) => format(date, 'yyyy-MM-dd');
 
 export const LeaveStatsPage: React.FC = () => {
+    const { isAuthorized } = useAuthCheck({ requiredRoles: ['ADMIN', 'RH', 'MANAGER'] });
+    const { user } = useAuthStore();
+    const isManager = user?.roles?.includes('MANAGER');
+    const managerDept = user?.departement;
     const today = new Date();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    const { register, handleSubmit } = useForm<CongeReportRequest>({
+    const { register, handleSubmit, reset } = useForm<CongeReportRequest>({
         defaultValues: {
             dateDebut: toISODate(monthStart),
             dateFin: toISODate(today),
             typeConge: '',
-            statut: ''
+            statut: '',
+            departementId: isManager ? undefined : undefined,
         }
     });
 
@@ -54,7 +61,8 @@ export const LeaveStatsPage: React.FC = () => {
         dateDebut: toISODate(monthStart),
         dateFin: toISODate(today),
         typeConge: '',
-        statut: ''
+        statut: '',
+        departementId: isManager ? undefined : undefined,
     });
 
     const { data: types } = useQuery({
@@ -67,9 +75,17 @@ export const LeaveStatsPage: React.FC = () => {
         queryFn: getDepartements
     });
 
+    const enforcedFilters = useMemo(() => {
+        if (isManager && managerDept) {
+            const deptId = departements?.find(d => d.nom === managerDept)?.id;
+            return { ...filters, departementId: deptId };
+        }
+        return filters;
+    }, [filters, isManager, managerDept, departements]);
+
     const { data: stats, isLoading, isError } = useQuery<CongeStatsResponse>({
-        queryKey: ['leave-stats', filters],
-        queryFn: () => leaveApi.getStatistics(filters)
+        queryKey: ['leave-stats', enforcedFilters],
+        queryFn: () => leaveApi.getStatistics(enforcedFilters)
     });
 
     const exportMutation = useMutation({
@@ -95,6 +111,14 @@ export const LeaveStatsPage: React.FC = () => {
             statut: values.statut || undefined,
             departementId: values.departementId || undefined,
         };
+
+        // Force manager to own department
+        if (isManager && managerDept) {
+            const deptId = departements?.find(d => d.nom === managerDept)?.id;
+            payload.departementId = deptId;
+            reset({ ...values, departementId: deptId });
+        }
+
         setFilters(payload);
     });
 
@@ -112,6 +136,8 @@ export const LeaveStatsPage: React.FC = () => {
         stats ? Object.entries(stats.joursParType || {}).map(([type, value]) => ({ type, value })) : [],
         [stats]
     );
+
+    if (!isAuthorized) return null;
 
     return (
         <div className="space-y-6">
@@ -154,7 +180,12 @@ export const LeaveStatsPage: React.FC = () => {
                     ))}
                 </Select>
 
-                <Select label="Département" wrapperClassName="md:col-span-2" {...register('departementId', { valueAsNumber: true })}> 
+                <Select
+                    label="Département"
+                    wrapperClassName="md:col-span-2"
+                    disabled={isManager}
+                    {...register('departementId', { valueAsNumber: true })}
+                > 
                     <option value="">Tous</option>
                     {departements?.map(dep => (
                         <option key={dep.id} value={dep.id}>{dep.nom}</option>

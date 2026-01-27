@@ -10,12 +10,14 @@ interface JobDetailModalProps {
   isOpen: boolean;
   jobId: number | null;
   onClose: () => void;
+  isReadOnly?: boolean; // Mode consultation (Eye icon)
 }
 
 export const JobDetailModal: React.FC<JobDetailModalProps> = ({
   isOpen,
   jobId,
   onClose,
+  isReadOnly = true, // Par défaut, consultation
 }) => {
   const queryClient = useQueryClient();
   const [isEditMode, setIsEditMode] = useState(false);
@@ -114,26 +116,28 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                 )}
               </div>
 
-              <button
-                onClick={handleEditToggle}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  isEditMode
-                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                }`}
-              >
-                {isEditMode ? (
-                  <>
-                    <X className="w-4 h-4" />
-                    Annuler
-                  </>
-                ) : (
-                  <>
-                    <Edit2 className="w-4 h-4" />
-                    Modifier
-                  </>
-                )}
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={handleEditToggle}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                    isEditMode
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                  }`}
+                >
+                  {isEditMode ? (
+                    <>
+                      <X className="w-4 h-4" />
+                      Annuler
+                    </>
+                  ) : (
+                    <>
+                      <Edit2 className="w-4 h-4" />
+                      Modifier
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4">

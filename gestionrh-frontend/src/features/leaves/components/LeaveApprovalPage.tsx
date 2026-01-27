@@ -3,8 +3,10 @@ import { leaveApi } from '../api';
 import { CheckCircle2, XCircle, Clock, Search, Filter } from 'lucide-react';
 import { useState } from 'react';
 import type { Conge } from '../types';
+import { useAuthCheck } from '@/hooks/useAuthCheck';
 
 export const LeaveApprovalPage = () => {
+    const { isAuthorized } = useAuthCheck({ requiredRoles: ['ADMIN', 'RH', 'MANAGER'] });
     const queryClient = useQueryClient();
     const [filter, setFilter] = useState('');
 
@@ -40,6 +42,8 @@ export const LeaveApprovalPage = () => {
         r.employeNom.toLowerCase().includes(filter.toLowerCase()) ||
         r.type.toLowerCase().includes(filter.toLowerCase())
     );
+
+    if (!isAuthorized) return null;
 
     if (isLoading) return (
         <div className="flex justify-center items-center h-64">

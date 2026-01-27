@@ -248,6 +248,7 @@ export const JobsPage = () => {
                     setIsDetailModalOpen(false);
                     setSelectedJobId(null);
                 }}
+                isReadOnly={true}
             />
         </div>
     );

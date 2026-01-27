@@ -95,62 +95,78 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialDa
     const isEditMode = !!initialData;
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[80vh] overflow-y-auto px-1">
-            <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[80vh] overflow-y-auto px-1">
+            {/* Section Informations Personnelles */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="h-1 w-1 rounded-full bg-blue-600"></div>
+                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Informations Personnelles</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <Input
+                        label="Nom"
+                        id="nom"
+                        type="text"
+                        error={errors.nom?.message}
+                        {...register('nom', { required: 'Requis' })}
+                    />
+                    <Input
+                        label="Prénom"
+                        id="prenom"
+                        type="text"
+                        error={errors.prenom?.message}
+                        {...register('prenom', { required: 'Requis' })}
+                    />
+                </div>
                 <Input
-                    label="Nom"
-                    id="nom"
-                    type="text"
-                    error={errors.nom?.message}
-                    {...register('nom', { required: 'Requis' })}
+                    label="Email"
+                    id="email"
+                    type="email"
+                    error={errors.email?.message}
+                    {...register('email', { required: 'Requis' })}
                 />
                 <Input
-                    label="Prénom"
-                    id="prenom"
-                    type="text"
-                    error={errors.prenom?.message}
-                    {...register('prenom', { required: 'Requis' })}
+                    label="Téléphone"
+                    id="telephone"
+                    type="tel"
+                    error={errors.telephone?.message}
+                    {...register('telephone', {
+                        pattern: {
+                            value: /^[0-9]{8}$/,
+                            message: 'Le téléphone doit contenir 8 chiffres'
+                        }
+                    })}
                 />
             </div>
 
-            <Input
-                label="Email"
-                id="email"
-                type="email"
-                error={errors.email?.message}
-                {...register('email', { required: 'Requis' })}
-            />
+            {/* Section Sécurité */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="h-1 w-1 rounded-full bg-amber-600"></div>
+                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Sécurité</h3>
+                </div>
+                <Input
+                    label={`Mot de passe ${isEditMode ? '(laisser vide pour ne pas changer)' : ''}`}
+                    id="motDePasse"
+                    type="password"
+                    error={errors.motDePasse?.message}
+                    {...register('motDePasse', {
+                        required: isEditMode ? false : 'Requis',
+                        minLength: { value: 8, message: '8 caractères minimum' },
+                        pattern: {
+                            value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+                            message: 'Format requis: 8+ car., Maj, min, chiffre, spécial (@$!%*?&)'
+                        }
+                    })}
+                />
+            </div>
 
-            <Input
-                label="Téléphone"
-                id="telephone"
-                type="tel"
-                error={errors.telephone?.message}
-                {...register('telephone', {
-                    pattern: {
-                        value: /^[0-9]{8}$/,
-                        message: 'Le téléphone doit contenir 8 chiffres'
-                    }
-                })}
-            />
-
-            <Input
-                label={`Mot de passe ${isEditMode ? '(laisser vide pour ne pas changer)' : ''}`}
-                id="motDePasse"
-                type="password"
-                error={errors.motDePasse?.message}
-                {...register('motDePasse', {
-                    required: isEditMode ? false : 'Requis',
-                    minLength: { value: 8, message: '8 caractères minimum' },
-                    pattern: {
-                        value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-                        message: 'Format requis: 8+ car., Maj, min, chiffre, spécial (@$!%*?&)'
-                    }
-                })}
-            />
-
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Affectation Professionnelle</h3>
+            {/* Section Affectation Professionnelle */}
+            <div className="space-y-4 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl border-2 border-blue-100">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="h-1 w-1 rounded-full bg-blue-600"></div>
+                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Affectation Professionnelle</h3>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                     <Select
                         label="Département"
@@ -178,29 +194,56 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialDa
                 </div>
             </div>
 
-            <Select
-                label="Rôle"
-                id="roles"
-                error={errors.roles?.message}
-                defaultValue={initialData?.roles?.[0] || "EMPLOYE"}
-                {...register('roles', { required: 'Requis' })}
-            >
-                <option value="EMPLOYE">Employé</option>
-                <option value="MANAGER">Manager</option>
-                <option value="RH">RH</option>
-                <option value="ADMIN">Admin</option>
-            </Select>
-
-            <div className="flex justify-end pt-4">
-                <Button
-                    type="submit"
-                    variant="primary"
-                    loading={createMutation.isPending || updateMutation.isPending}
+            {/* Section Rôle & Accès */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="h-1 w-1 rounded-full bg-purple-600"></div>
+                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Rôle & Accès</h3>
+                </div>
+                <Select
+                    label="Rôle"
+                    id="roles"
+                    error={errors.roles?.message}
+                    defaultValue={initialData?.roles?.[0] || "EMPLOYE"}
+                    {...register('roles', { required: 'Requis' })}
                 >
-                    {isEditMode ? 'Modifier' : 'Créer'}
-                </Button>
+                    <option value="EMPLOYE">👥 Employé</option>
+                    <option value="MANAGER">👨‍💼 Manager</option>
+                    <option value="RH">📋 RH</option>
+                    <option value="ADMIN">🔐 Admin</option>
+                </Select>
             </div>
-            {(createMutation.isError || updateMutation.isError) && <div className="text-red-500 text-sm">Erreur lors de l'enregistrement.</div>}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                <button
+                    type="button"
+                    onClick={() => reset()}
+                    className="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all"
+                >
+                    Annuler
+                </button>
+                <button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-black hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-200/50 flex items-center gap-2"
+                >
+                    {createMutation.isPending || updateMutation.isPending ? (
+                        <>
+                            <span className="inline-flex animate-spin">⏳</span>
+                            Enregistrement...
+                        </>
+                    ) : (
+                        isEditMode ? 'Modifier' : 'Créer'
+                    )}
+                </button>
+            </div>
+            {(createMutation.isError || updateMutation.isError) && (
+                <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5" />
+                    Erreur lors de l'enregistrement.
+                </div>
+            )}
         </form>
     );
 };

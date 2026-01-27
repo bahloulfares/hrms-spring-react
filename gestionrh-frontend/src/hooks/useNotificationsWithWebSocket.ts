@@ -7,15 +7,16 @@ import { getNotifications } from '../api/notifications';
  * Hook pour gérer les notifications avec WebSocket + fallback polling
  */
 export const useNotificationsWithWebSocket = () => {
+    const wsEnabled = (import.meta.env.VITE_WS_ENABLED as string | undefined)?.toLowerCase() !== 'false';
     const [wsConnected, setWsConnected] = useState(false);
     const [fallbackToPolling, setFallbackToPolling] = useState(false);
     const wsConnectionUnsubscribeRef = useRef<(() => void) | null>(null);
     const wsMessageUnsubscribeRef = useRef<(() => void) | null>(null);
     const queryClient = useQueryClient();
 
-    // Polling fallback: toutes les 30s si WebSocket n'est pas connecté
-    const pollingEnabled = fallbackToPolling || !wsConnected;
-    const pollInterval = fallbackToPolling ? 30000 : undefined; // 30s fallback, disabled si WS connecté
+    // Polling fallback: toutes les 30s si WebSocket n'est pas connecté ou si le WS est désactivé
+    const pollingEnabled = !wsEnabled || fallbackToPolling || !wsConnected;
+    const pollInterval = !wsEnabled || fallbackToPolling ? 30000 : undefined; // 30s fallback, disabled si WS connecté
 
     // Query pour les notifications (polling fallback)
     const { data: notifications = [] } = useQuery({
@@ -27,6 +28,13 @@ export const useNotificationsWithWebSocket = () => {
     });
 
     useEffect(() => {
+        if (!wsEnabled) {
+            // WS désactivé via env, on reste en polling
+            setWsConnected(false);
+            setFallbackToPolling(true);
+            return;
+        }
+
         const ws = getWebSocketService();
 
         // Listener: changement de connexion WebSocket
@@ -70,10 +78,10 @@ export const useNotificationsWithWebSocket = () => {
                 wsMessageUnsubscribeRef.current();
             }
         };
-    }, [queryClient]);
+    }, [queryClient, wsEnabled]);
 
     const unreadCount = notifications.filter((n: any) => !n.read).length;
-    const isWebSocketConnected = wsConnected && !fallbackToPolling;
+    const isWebSocketConnected = wsEnabled ? (wsConnected && !fallbackToPolling) : true; // si désactivé, on évite l'état hors-ligne
 
     return {
         notifications,
@@ -82,7 +90,7 @@ export const useNotificationsWithWebSocket = () => {
         isWebSocketConnected,
         fallbackToPolling,
         isLoading: false,
-        status: wsConnected ? 'connected' : fallbackToPolling ? 'polling' : 'disconnected',
+        status: wsEnabled ? (wsConnected ? 'connected' : fallbackToPolling ? 'polling' : 'disconnected') : 'disabled',
     };
 };
 
