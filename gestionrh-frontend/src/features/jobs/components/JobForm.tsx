@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { Briefcase, Building2, DollarSign, FileText, AlertCircle } from 'lucide-react';
+import { Briefcase, DollarSign, AlertCircle } from 'lucide-react';
 import { createPoste, updatePoste } from '../api';
 import { getDepartements } from '../../departments/api';
 import type { Poste, CreatePosteRequest } from '../types';

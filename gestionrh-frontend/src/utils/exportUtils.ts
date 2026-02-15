@@ -4,13 +4,13 @@ import * as XLSX from 'xlsx';
 
 type Orientation = 'portrait' | 'landscape';
 
-type ExportColumn<T> = {
+type ExportColumn<T extends Record<string, unknown>> = {
   header: string;
   accessor?: keyof T;
   formatter?: (row: T) => string | number | null | undefined;
 };
 
-interface ExportOptions<T> {
+interface ExportOptions<T extends Record<string, unknown>> {
   title: string;
   columns: ExportColumn<T>[];
   data: T[];
@@ -26,7 +26,7 @@ const normalizeValue = (value: unknown): string | number => {
   return String(value).replace(/\u202f|\u00a0/g, ' ');
 };
 
-export function exportToPdf<T>(options: ExportOptions<T>): void {
+export function exportToPdf<T extends Record<string, unknown>>(options: ExportOptions<T>): void {
   const { title, columns, data, fileName, orientation = 'landscape', meta } = options;
   if (!data || data.length === 0) return;
 
@@ -43,7 +43,7 @@ export function exportToPdf<T>(options: ExportOptions<T>): void {
 
   const rows = data.map((row) =>
     columns.map((col) =>
-      normalizeValue(col.formatter ? col.formatter(row) : col.accessor ? (row as any)[col.accessor] : '')
+      normalizeValue(col.formatter ? col.formatter(row) : col.accessor ? row[col.accessor] : '')
     )
   );
 
@@ -60,7 +60,7 @@ export function exportToPdf<T>(options: ExportOptions<T>): void {
   doc.save(`${fileName || title}.pdf`);
 }
 
-export function exportToExcel<T>(options: ExportOptions<T>): void {
+export function exportToExcel<T extends Record<string, unknown>>(options: ExportOptions<T>): void {
   const { title, columns, data, fileName } = options;
   if (!data || data.length === 0) return;
 
@@ -68,7 +68,7 @@ export function exportToExcel<T>(options: ExportOptions<T>): void {
 
   data.forEach((row) => {
     worksheetData.push(
-      columns.map((col) => String(normalizeValue(col.formatter ? col.formatter(row) : col.accessor ? (row as any)[col.accessor] : '')))
+      columns.map((col) => String(normalizeValue(col.formatter ? col.formatter(row) : col.accessor ? row[col.accessor] : '')))
     );
   });
 

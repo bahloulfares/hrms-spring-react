@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { leaveApi } from '../api';
@@ -83,18 +83,12 @@ export const LeaveStatsPage: React.FC = () => {
         return filters;
     }, [filters, isManager, managerDept, departements]);
 
-    const { data: stats, isLoading, isError, refetch, isFetching } = useQuery<CongeStatsResponse>({
+    const { data: stats, isLoading, isError, refetch, isFetching, dataUpdatedAt } = useQuery<CongeStatsResponse>({
         queryKey: ['leave-stats', enforcedFilters],
         queryFn: () => leaveApi.getStatistics(enforcedFilters)
     });
 
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-    useEffect(() => {
-        if (stats) {
-            setLastUpdated(new Date());
-        }
-    }, [stats]);
+    const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
     const exportMutation = useMutation({
         mutationFn: () => leaveApi.exportCsv(filters),

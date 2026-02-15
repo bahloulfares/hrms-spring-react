@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, User, FileText, AlertCircle } from 'lucide-react';
+import { Building2, User, AlertCircle } from 'lucide-react';
 import { createDepartement, updateDepartement } from '../api';
 import { getEmployees } from '../../employees/api';
 import type { Departement, CreateDepartementRequest } from '../types';
