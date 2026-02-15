@@ -1,8 +1,9 @@
 import { useAuthStore } from '@/store/auth';
 import { User, Mail, Phone, Building2, Briefcase, ShieldCheck, Calendar } from 'lucide-react';
+import type { User as UserType } from '@/types';
 
 export const ProfilePage = () => {
-    const { user, loading } = useAuthStore();
+    const { user, loading } = useAuthStore() as { user: UserType | null; loading: boolean };
 
     // Show loading state while auth is being checked
     if (loading) {
@@ -106,7 +107,7 @@ export const ProfilePage = () => {
                                 <span className="text-gray-500 font-medium flex items-center gap-2 flex-shrink-0">
                                     <Calendar className="w-4 h-4 flex-shrink-0" /> Membre depuis
                                 </span>
-                                <span className="text-gray-900 font-bold">{new Date((user as any)?.dateCreation || Date.now()).getFullYear()}</span>
+                                <span className="text-gray-900 font-bold">{new Date(user?.dateCreation || 0).getFullYear()}</span>
                             </div>
                             <div className="h-[1px] bg-gray-100"></div>
                             <div className="flex justify-between items-center gap-2">

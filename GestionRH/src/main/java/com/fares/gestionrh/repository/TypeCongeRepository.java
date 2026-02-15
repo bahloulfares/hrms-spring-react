@@ -17,6 +17,12 @@ public interface TypeCongeRepository extends JpaRepository<TypeConge, Long> {
     @Cacheable(value = "typeCongeByNom", key = "#nom")
     Optional<TypeConge> findByNom(String nom);
     
-    @Cacheable(value = "allTypeConges")
+    @Cacheable(value = "allTypeCongesAll")
     List<TypeConge> findAll();
+
+    @Cacheable(value = "allTypeCongesActive")
+    List<TypeConge> findAllByActifTrue();
+
+    @Cacheable(value = "allTypeCongesInactive")
+    List<TypeConge> findAllByActifFalse();
 }

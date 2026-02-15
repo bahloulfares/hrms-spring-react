@@ -29,4 +29,11 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
     List<Utilisateur> searchByNomOrPrenom(@Param("search") String search);
 
     List<Utilisateur> findByDepartement(Departement departement);
+
+    // Requêtes pour le soft delete
+    @Query("SELECT u FROM Utilisateur u WHERE u.id = :id")
+    Optional<Utilisateur> findByIdIncludingInactive(@Param("id") Long id);
+
+    @Query("SELECT u FROM Utilisateur u WHERE u.actif = false")
+    List<Utilisateur> findAllInactive();
 }

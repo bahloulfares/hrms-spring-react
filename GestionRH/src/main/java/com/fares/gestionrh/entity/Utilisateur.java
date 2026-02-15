@@ -5,12 +5,14 @@ import lombok.*;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.SQLDelete;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "utilisateurs")
+@SQLDelete(sql = "UPDATE utilisateurs SET actif = false WHERE id = ?")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -67,5 +69,14 @@ public class Utilisateur {
             this.roles = new HashSet<>();
         }
         this.roles.add(role);
+    }
+
+    // Méthodes pour le soft delete
+    public void deactivate() {
+        this.actif = false;
+    }
+
+    public void activate() {
+        this.actif = true;
     }
 }

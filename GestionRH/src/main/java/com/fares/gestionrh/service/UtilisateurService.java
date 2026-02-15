@@ -91,10 +91,26 @@ public class UtilisateurService {
 
     @Transactional
     public void deleteUtilisateur(Long id) {
-        if (!utilisateurRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Utilisateur", "id", id);
-        }
-        utilisateurRepository.deleteById(id);
+        Utilisateur utilisateur = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+        
+        // Soft delete - désactive l'utilisateur au lieu de le supprimer
+        utilisateur.deactivate();
+        utilisateurRepository.save(utilisateur);
+        
+        log.info("Utilisateur {} désactivé (soft delete)", id);
+    }
+
+    @Transactional
+    public UtilisateurDTO reactivateUtilisateur(Long id) {
+        Utilisateur utilisateur = utilisateurRepository.findByIdIncludingInactive(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+        
+        utilisateur.activate();
+        utilisateurRepository.save(utilisateur);
+        
+        log.info("Utilisateur {} réactivé", id);
+        return utilisateurMapper.toDTO(utilisateur);
     }
 
     @Transactional

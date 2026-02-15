@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Building2, User, FileText, AlertCircle } from 'lucide-react';
 import { createDepartement, updateDepartement } from '../api';
 import { getEmployees } from '../../employees/api';
 import type { Departement, CreateDepartementRequest } from '../types';
@@ -73,47 +74,93 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ initialData, onS
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Input
-                label="Nom du Département"
-                id="nom"
-                type="text"
-                error={errors.nom?.message}
-                {...register('nom', { required: 'Le nom est obligatoire' })}
-            />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* En-tête du formulaire */}
+            <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                    <Building2 className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                    <h3 className="font-semibold text-gray-900">
+                        {initialData ? 'Modifier le département' : 'Nouveau département'}
+                    </h3>
+                    <p className="text-sm text-gray-500">Remplissez les informations ci-dessous</p>
+                </div>
+            </div>
 
-            <Textarea
-                label="Description"
-                id="description"
-                {...register('description')}
-            />
+            {/* Section Informations de base */}
+            <div className="bg-gray-50 rounded-lg p-5 space-y-4">
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    <Building2 className="w-4 h-4" />
+                    Informations de base
+                </h4>
+                
+                <Input
+                    label="Nom du Département"
+                    id="nom"
+                    type="text"
+                    placeholder="Ex: Informatique, Ressources Humaines..."
+                    error={errors.nom?.message}
+                    {...register('nom', { required: 'Le nom est obligatoire' })}
+                />
 
-            <Select
-                label="Manager / Chef de Département"
-                id="managerId"
-                {...register('managerId')}
-            >
-                <option value="">-- Aucun manager assigné --</option>
-                {eligibleManagers.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                        {emp.prenom} {emp.nom} ({emp.email}) ({emp.roles.join(', ')})
-                    </option>
-                ))}
-            </Select>
+                <Textarea
+                    label="Description"
+                    id="description"
+                    placeholder="Décrivez le rôle et les responsabilités du département..."
+                    rows={4}
+                    {...register('description')}
+                />
+            </div>
 
-            <div className="flex justify-end pt-4">
+            {/* Section Responsable */}
+            <div className="bg-gray-50 rounded-lg p-5 space-y-4">
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    <User className="w-4 h-4" />
+                    Responsable
+                </h4>
+                
+                <Select
+                    label="Manager / Chef de Département"
+                    id="managerId"
+                    {...register('managerId')}
+                >
+                    <option value="">-- Aucun manager assigné --</option>
+                    {eligibleManagers.map(emp => (
+                        <option key={emp.id} value={emp.id}>
+                            {emp.prenom} {emp.nom} ({emp.email}) - {emp.roles.join(', ')}
+                        </option>
+                    ))}
+                </Select>
+                
+                <p className="flex items-start gap-2 text-xs text-gray-600">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    Seuls les employés avec les rôles ADMIN, RH ou MANAGER peuvent être assignés comme managers
+                </p>
+            </div>
+
+            {/* Message d'erreur */}
+            {mutation.isError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    <div>
+                        <p className="font-medium text-red-900">Erreur</p>
+                        <p className="text-red-800 text-sm">Une erreur est survenue lors de la {initialData ? 'modification' : 'création'}.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Boutons d'action */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <Button
                     type="submit"
                     variant="primary"
                     loading={mutation.isPending}
+                    className="min-w-[120px]"
                 >
                     {initialData ? 'Modifier' : 'Créer'}
                 </Button>
             </div>
-
-            {mutation.isError && (
-                <div className="text-red-500 text-sm">Une erreur est survenue lors de la {initialData ? 'modification' : 'création'}.</div>
-            )}
         </form>
     );
 };

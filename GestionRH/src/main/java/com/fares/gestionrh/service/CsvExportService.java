@@ -11,6 +11,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -22,14 +23,18 @@ public class CsvExportService {
         try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
             writer.println("ID,Type,Employé,Date Début,Date Fin,Nombre Jours,Durée Type,Heure Début,Heure Fin,Statut,Date Demande,Validateur,Date Validation,Motif,Commentaire");
             
-            for (CongeResponse conge : conges) {
-                writer.printf("%d,%s,%s,%s,%s,%.2f,%s,%s,%s,%s,%s,%s,%s,\"%s\",\"%s\"%n",
-                        conge.getId(),
+                for (CongeResponse conge : conges) {
+                String id = conge.getId() != null ? conge.getId().toString() : "";
+                String nombreJours = conge.getNombreJours() != null
+                    ? String.format(Locale.US, "%.2f", conge.getNombreJours())
+                    : "";
+                writer.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,\"%s\",\"%s\"%n",
+                    id,
                         escape(conge.getType() != null ? conge.getType() : ""),
                         escape(conge.getEmployeNom()),
                         conge.getDateDebut(),
                         conge.getDateFin(),
-                        conge.getNombreJours(),
+                    nombreJours,
                         escape(conge.getDureeType()),
                         conge.getHeureDebut() != null ? conge.getHeureDebut() : "",
                         conge.getHeureFin() != null ? conge.getHeureFin() : "",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Edit2, Save, AlertCircle, Loader } from 'lucide-react';
 import { getEmployee, updateEmployee } from '../api';
@@ -48,7 +48,7 @@ export const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<Employee> & { newPassword?: string }) => {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         email: data.email || '',
         nom: data.nom || '',
         prenom: data.prenom || '',
@@ -73,25 +73,21 @@ export const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({
       setIsEditMode(false);
       setEditData(null);
       setNewPassword('');
+      // Fermer le modal après succès de la mise à jour
+      setTimeout(() => onClose(), 500);
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Erreur lors de la mise à jour');
+    onError: (err: unknown) => {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosError?.response?.data?.message || 'Erreur lors de la mise à jour');
     },
   });
 
-  useEffect(() => {
-    if (!isOpen) {
-      setIsEditMode(false);
-      setNewPassword('');
-      setEditData(null);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (employee && isEditMode) {
-      setEditData(employee);
-    }
-  }, [employee, isEditMode]);
+  const handleClose = () => {
+    setIsEditMode(false);
+    setNewPassword('');
+    setEditData(null);
+    onClose();
+  };
 
   const handleEditToggle = () => {
     if (isEditMode) {
@@ -104,7 +100,7 @@ export const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({
     }
   };
 
-  const handleInputChange = (field: keyof Employee, value: any) => {
+  const handleInputChange = (field: keyof Employee, value: string | number | boolean | string[] | null) => {
     setEditData((prev) => (prev ? { ...prev, [field]: value } : null));
   };
 
@@ -116,7 +112,7 @@ export const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({
   const displayData = isEditMode && editData ? editData : employee;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="">
+    <Modal isOpen={isOpen} onClose={handleClose} title="">
       <div className="space-y-4 max-h-[85vh] overflow-y-auto">
         {isLoading && (
           <div className="flex justify-center items-center py-16">

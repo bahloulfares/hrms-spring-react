@@ -3,7 +3,6 @@ package com.fares.gestionrh.exception;
 import com.fares.gestionrh.dto.common.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -216,6 +215,22 @@ public class GlobalExceptionHandler {
                 .timestamp(LocalDateTime.now())
                 .build();
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    /**
+     * Gestion des IllegalStateException et IllegalArgumentException
+     * Utilisé pour les validations métier strictes (ex: suppression impossible)
+     */
+    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
+    public ResponseEntity<ErrorResponse> handleIllegalStateException(RuntimeException ex, WebRequest request) {
+        log.warn("Validation métier échouée: {}", ex.getMessage());
+        ErrorResponse error = ErrorResponse.builder()
+                .status(400)
+                .message(ex.getMessage())
+                .path(request.getDescription(false))
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     /**

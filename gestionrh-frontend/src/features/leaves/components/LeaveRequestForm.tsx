@@ -34,9 +34,15 @@ export const LeaveRequestForm = ({ onSuccess }: Props) => {
         queryFn: leaveApi.getLeaveTypes
     });
 
+    // Filtrer uniquement les types actifs
+    const activeTypes = useMemo(() => 
+        types?.filter((t: TypeConge) => t.actif !== false) || [],
+        [types]
+    );
+
     const selectedType = useMemo(() =>
-        types?.find((t: TypeConge) => t.code === selectedTypeCode),
-        [types, selectedTypeCode]);
+        activeTypes?.find((t: TypeConge) => t.code === selectedTypeCode),
+        [activeTypes, selectedTypeCode]);
 
     const calculatedDays = useMemo(() => {
         if (!startDate || !endDate) return 0;
@@ -154,7 +160,7 @@ export const LeaveRequestForm = ({ onSuccess }: Props) => {
                     wrapperClassName="flex-1"
                     {...register('type', { required: 'Obligatoire' })}
                 >
-                    {types?.map((t: TypeConge) => (
+                    {activeTypes?.map((t: TypeConge) => (
                         <option key={t.id} value={t.code}>{t.nom}</option>
                     ))}
                 </Select>

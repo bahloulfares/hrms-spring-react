@@ -9,6 +9,7 @@ export interface TypeConge {
     joursParAn: number;
     compteWeekend: boolean;
     peutDeborderSurCP: boolean;
+    actif?: boolean;
 }
 
 export interface SoldeConge {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { leaveApi } from '../api';
@@ -21,7 +21,7 @@ import {
     Cell,
     Legend
 } from 'recharts';
-import { Download, BarChart3, PieChart as PieIcon, Loader2 } from 'lucide-react';
+import { Download, BarChart3, PieChart as PieIcon, Loader2, RotateCw } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useAuthCheck } from '@/hooks/useAuthCheck';
@@ -83,10 +83,18 @@ export const LeaveStatsPage: React.FC = () => {
         return filters;
     }, [filters, isManager, managerDept, departements]);
 
-    const { data: stats, isLoading, isError } = useQuery<CongeStatsResponse>({
+    const { data: stats, isLoading, isError, refetch, isFetching } = useQuery<CongeStatsResponse>({
         queryKey: ['leave-stats', enforcedFilters],
         queryFn: () => leaveApi.getStatistics(enforcedFilters)
     });
+
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+    useEffect(() => {
+        if (stats) {
+            setLastUpdated(new Date());
+        }
+    }, [stats]);
 
     const exportMutation = useMutation({
         mutationFn: () => leaveApi.exportCsv(filters),
@@ -146,15 +154,31 @@ export const LeaveStatsPage: React.FC = () => {
                     <h1 className="text-xl font-bold text-slate-800">Statistiques des congés</h1>
                     <p className="text-sm text-slate-500">Vue consolidée par période, statut et type</p>
                 </div>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    leftIcon={exportMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                    onClick={() => exportMutation.mutate()}
-                    disabled={exportMutation.isPending}
-                >
-                    {exportMutation.isPending ? 'Export...' : 'Exporter CSV'}
-                </Button>
+                <div className="flex items-center gap-3">
+                    {lastUpdated && (
+                        <span className="text-xs text-slate-500">
+                            Dernière mise à jour : {format(lastUpdated, 'dd/MM/yyyy HH:mm')}
+                        </span>
+                    )}
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        leftIcon={isFetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+                        onClick={() => refetch()}
+                        disabled={isFetching}
+                    >
+                        Rafraîchir
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        leftIcon={exportMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        onClick={() => exportMutation.mutate()}
+                        disabled={exportMutation.isPending}
+                    >
+                        {exportMutation.isPending ? 'Export...' : 'Exporter CSV'}
+                    </Button>
+                </div>
             </div>
 
             {isError && (
@@ -219,13 +243,13 @@ export const LeaveStatsPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <ChartCard title="Répartition par statut" icon={<BarChart3 className="w-4 h-4 text-blue-600" />}>
-                    <div className="h-64">
+                    <div className="h-64 min-w-0 w-full">
                         {isLoading ? (
                             <SkeletonChart height="16rem" className="border-0 p-0 shadow-none" />
                         ) : statutData.length === 0 ? (
                             <div className="h-full flex items-center justify-center text-slate-400 text-sm">Aucune donnée disponible</div>
                         ) : (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height={256} minWidth={0} minHeight={0}>
                                 <BarChart data={statutData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                     <XAxis dataKey="statut" tick={{ fill: '#475569', fontSize: 12 }} />
@@ -239,13 +263,13 @@ export const LeaveStatsPage: React.FC = () => {
                 </ChartCard>
 
                 <ChartCard title="Répartition par type" icon={<PieIcon className="w-4 h-4 text-emerald-600" />}>
-                    <div className="h-64">
+                    <div className="h-64 min-w-0 w-full">
                         {isLoading ? (
                             <SkeletonChart height="16rem" className="border-0 p-0 shadow-none" />
                         ) : typeData.length === 0 ? (
                             <div className="h-full flex items-center justify-center text-slate-400 text-sm">Aucune donnée disponible</div>
                         ) : (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height={256} minWidth={0} minHeight={0}>
                                 <PieChart>
                                     <Pie data={typeData} dataKey="value" nameKey="name" outerRadius={90} innerRadius={50} paddingAngle={2}>
                                         {typeData.map((entry, index) => (
@@ -262,13 +286,13 @@ export const LeaveStatsPage: React.FC = () => {
             </div>
 
             <ChartCard title="Jours consommés par type" icon={<BarChart3 className="w-4 h-4 text-indigo-600" />}>
-                <div className="h-72">
+                <div className="h-72 min-w-0 w-full">
                     {isLoading ? (
                         <SkeletonChart height="18rem" className="border-0 p-0 shadow-none" />
                     ) : joursParTypeData.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-slate-400 text-sm">Aucune donnée disponible</div>
                     ) : (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={288} minWidth={0} minHeight={0}>
                             <BarChart data={joursParTypeData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis dataKey="type" tick={{ fill: '#475569', fontSize: 12 }} />

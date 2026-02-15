@@ -1,0 +1,15 @@
+# Ignore Docker files
+.dockerignore
+Dockerfile
+docker-compose*.yml
+.env.docker
+
+# Ignore documentation
+DOCKER_GUIDE.md
+
+# Ignore nginx config (handled separately)
+nginx/
+
+# Development environment
+.env.local
+.env.development

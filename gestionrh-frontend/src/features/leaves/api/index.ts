@@ -103,6 +103,20 @@ export const leaveApi = {
         return [];
     },
 
+    getAdminTypesAll: async (): Promise<TypeConge[]> => {
+        const response = await axiosClient.get('/admin/type-conges/all');
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
+    },
+
+    getInactiveTypes: async (): Promise<TypeConge[]> => {
+        const response = await axiosClient.get('/admin/type-conges/inactive');
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && Array.isArray(response.data.content)) return response.data.content;
+        return [];
+    },
+
     createType: async (data: Partial<TypeConge>): Promise<TypeConge> => {
         const response = await axiosClient.post('/admin/type-conges', data);
         return response.data;
@@ -115,6 +129,11 @@ export const leaveApi = {
 
     deleteType: async (id: number): Promise<void> => {
         await axiosClient.delete(`/admin/type-conges/${id}`);
+    },
+
+    reactivateType: async (id: number): Promise<TypeConge> => {
+        const response = await axiosClient.post(`/admin/type-conges/${id}/reactivate`);
+        return response.data;
     },
 
     // Reporting / Statistiques

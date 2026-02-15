@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth';
-import { User, LogOut, Settings, ChevronDown, Bell, Search, Menu, X, Home, Users, Building2, Briefcase, Calendar, CheckSquare, BarChart3, FileText, UserCircle2, ChevronRight } from 'lucide-react';
+import { User, LogOut, Settings, ChevronDown, Bell, Search, Menu, X, Home, Users, Building2, Briefcase, Calendar, CheckSquare, BarChart3, FileText, ChevronRight } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { NotificationDropdown } from '../notifications/NotificationDropdown';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -51,10 +51,13 @@ export const DashboardLayout = () => {
 
     // Close overlays on navigation (mobile focus)
     useEffect(() => {
-        if (window.innerWidth < 768) {
+        const closeMenus = () => {
             setIsSidebarOpen(false);
             setIsUserMenuOpen(false);
             setIsNotificationOpen(false);
+        };
+        if (window.innerWidth < 768) {
+            closeMenus();
         }
     }, [location.pathname]);
 

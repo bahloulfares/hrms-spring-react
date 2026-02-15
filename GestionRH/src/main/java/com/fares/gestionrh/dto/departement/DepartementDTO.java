@@ -15,4 +15,5 @@ public class DepartementDTO {
     private String description;
     private String managerNom; // Nom complet du manager pour l'affichage
     private Long managerId;
+    private java.time.LocalDateTime createdAt;
 }

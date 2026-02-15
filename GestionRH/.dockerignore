@@ -1,0 +1,38 @@
+# Build artifacts
+target/
+!target/*.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+*.log
+
+# Test files
+src/test/
+
+# Maven wrapper (already copied explicitly)
+!.mvn/
+!mvnw
+!mvnw.cmd
+
+# Flyway repair scripts (not needed in container)
+*.ps1
+*.sql
+!src/main/resources/db/migration/*.sql

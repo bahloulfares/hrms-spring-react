@@ -67,12 +67,20 @@ public class CongeService {
         TypeConge typeConge = typeCongeRepository.findByCode(request.getType().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("TypeConge", "code", request.getType()));
 
+        // VALIDATION: Vérifier que le type de congé est actif
+        if (!Boolean.TRUE.equals(typeConge.getActif())) {
+            throw new BusinessException(
+                String.format("Le type de congé '%s' n'est plus actif et ne peut pas être utilisé pour de nouvelles demandes", 
+                    typeConge.getNom())
+            );
+        }
+
         // Préparer l'entité avec la durée demandée
         Conge conge = congeMapper.toEntity(request, employe);
         conge.setDureeType(dureeType);
 
         // Calcul des jours par année (inclut demi-journée / horaire)
-        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, typeConge.isCompteWeekend());
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, Boolean.TRUE.equals(typeConge.getCompteWeekend()));
 
         double totalJours = daysPerYear.values().stream().mapToDouble(Double::doubleValue).sum();
 
@@ -95,7 +103,7 @@ public class CongeService {
             double cpRestant = 0.0;
             // On ne cherche le CP que si le type actuel peut déborder et n'est pas déjà le
             // CP
-            if (!"CP".equalsIgnoreCase(typeConge.getCode()) && typeConge.isPeutDeborderSurCP()) {
+            if (!"CP".equalsIgnoreCase(typeConge.getCode()) && Boolean.TRUE.equals(typeConge.getPeutDeborderSurCP())) {
                 TypeConge cpType = typeCongeRepository.findByCode("CP")
                         .or(() -> typeCongeRepository.findByCode("cp"))
                         .orElse(null);
@@ -196,11 +204,11 @@ public class CongeService {
 
         Conge savedConge = congeRepository.save(conge);
 
-        // Audit trail - temporarily wrapped in try-catch to allow app startup
+        // Audit trail with defensive error handling
         try {
             logStatutTransition(savedConge, ancienStatut, nouveauStatut, validateurEmail, request.getCommentaire());
         } catch (Exception e) {
-            log.warn("Audit logging failed (table may not exist yet): {}", e.getMessage());
+            log.warn("Audit logging failed: {}", e.getMessage());
         }
 
         // Notifications
@@ -294,12 +302,11 @@ public class CongeService {
 
         Conge savedConge = congeRepository.save(conge);
 
-        // Audit trail - temporarily disabled to allow app startup while conge_historique table is being created
-        // TODO: Re-enable after Flyway migrations complete
+        // Audit trail with defensive error handling
         try {
             logStatutTransition(savedConge, ancienStatut, StatutConge.ANNULE, email, "Annulation par l'employé");
         } catch (Exception e) {
-            log.warn("Audit logging failed (table may not exist yet): {}", e.getMessage());
+            log.warn("Audit logging failed: {}", e.getMessage());
         }
 
         publishLeaveEvent(LeaveEvent.EventType.CANCELLED, savedConge);
@@ -309,7 +316,7 @@ public class CongeService {
     }
 
     private void deduireDuSolde(Conge conge) {
-        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, conge.getType().isCompteWeekend());
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, Boolean.TRUE.equals(conge.getType().getCompteWeekend()));
 
         double totalTakenSpecific = 0.0;
         double totalTakenCP = 0.0;
@@ -339,7 +346,7 @@ public class CongeService {
             double resteADeduire = joursADeduire - takenFromSpecific;
 
             // 2. Si surplus ET autorisé, déduire du CP
-            if (resteADeduire > 0 && conge.getType().isPeutDeborderSurCP()) {
+            if (resteADeduire > 0 && Boolean.TRUE.equals(conge.getType().getPeutDeborderSurCP())) {
                 TypeConge typeCP = typeCongeRepository.findByCode("CP")
                         .or(() -> typeCongeRepository.findByCode("cp"))
                         .orElseThrow(() -> new BusinessException("Type congé CP non configuré ou introuvable"));
@@ -369,7 +376,7 @@ public class CongeService {
     }
 
     private void recrediterLeSolde(Conge conge) {
-        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, conge.getType().isCompteWeekend());
+        Map<Integer, Double> daysPerYear = calculateDaysPerYear(conge, Boolean.TRUE.equals(conge.getType().getCompteWeekend()));
 
         double remainingSpecific = conge.getJoursDeductionSpecifique() != null ? conge.getJoursDeductionSpecifique()
                 : 0.0;
@@ -474,12 +481,41 @@ public class CongeService {
         return congeMapper.toDTO(conge);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<SoldeCongeResponse> getMesSoldes(String email) {
         Utilisateur employe = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", email));
-        return soldeCongeRepository.findByUtilisateur(employe).stream()
-                .map(this::mapToSoldeDTO)
+        
+        int anneeActuelle = LocalDate.now().getYear();
+        
+        // Récupérer les soldes existants pour l'année actuelle
+        Map<Long, SoldeConge> soldesMap = soldeCongeRepository.findByUtilisateur(employe).stream()
+                .filter(s -> s.getAnnee() == anneeActuelle)
+                .collect(Collectors.toMap(s -> s.getTypeConge().getId(), s -> s));
+        
+        // Récupérer tous les types de congés actifs
+        List<TypeConge> typesActifs = typeCongeRepository.findAllByActifTrue();
+        
+        // Créer ou récupérer les SoldeCongeResponse pour tous les types actifs
+        return typesActifs.stream()
+                .map(type -> {
+                    SoldeConge solde = soldesMap.get(type.getId());
+                    if (solde != null) {
+                        return mapToSoldeDTO(solde);
+                    } else {
+                        // Initialiser automatiquement le solde s'il n'existe pas
+                        SoldeConge nouveauSolde = SoldeConge.builder()
+                                .utilisateur(employe)
+                                .typeConge(type)
+                                .joursRestants(type.getJoursParAn().doubleValue())
+                                .annee(anneeActuelle)
+                                .build();
+                        SoldeConge soldeSaved = soldeCongeRepository.save(nouveauSolde);
+                        log.info("Solde initialisé automatiquement pour {} : {} ({} jours)", 
+                                employe.getEmail(), type.getNom(), type.getJoursParAn());
+                        return mapToSoldeDTO(soldeSaved);
+                    }
+                })
                 .collect(Collectors.toList());
     }
 
@@ -778,6 +814,7 @@ public class CongeService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public List<CongeResponse> getReport(CongeReportRequest request) {
         List<Conge> conges = filterConges(request);
         return conges.stream()
@@ -790,9 +827,10 @@ public class CongeService {
         
         if (request.getDateDebut() != null && request.getDateFin() != null) {
             conges = conges.stream()
-                    .filter(c -> !c.getDateDebut().isAfter(request.getDateFin()) 
-                              && !c.getDateFin().isBefore(request.getDateDebut()))
-                    .collect(Collectors.toList());
+                .filter(c -> c.getDateDebut() != null && c.getDateFin() != null)
+                .filter(c -> !c.getDateDebut().isAfter(request.getDateFin())
+                      && !c.getDateFin().isBefore(request.getDateDebut()))
+                .collect(Collectors.toList());
         }
         
         if (request.getTypeConge() != null && !request.getTypeConge().isBlank()) {

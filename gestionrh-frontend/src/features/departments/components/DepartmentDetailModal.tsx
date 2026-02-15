@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Edit2, Save, AlertCircle, Loader } from 'lucide-react';
+import { X, Edit2, Save, AlertCircle, Loader, Building2, User, FileText, Calendar } from 'lucide-react';
 import { getDepartement, updateDepartement } from '../api';
 import type { Departement } from '../types';
 import { Modal } from '../../../components/common/Modal';
@@ -49,21 +49,17 @@ export const DepartmentDetailModal: React.FC<DepartmentDetailModalProps> = ({
       setIsEditMode(false);
       setEditData(null);
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Erreur lors de la mise à jour');
+    onError: (err: unknown) => {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosError?.response?.data?.message || 'Erreur lors de la mise à jour');
     },
   });
 
-  useEffect(() => {
-    if (!isOpen) {
-      setIsEditMode(false);
-      setEditData(null);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (department && isEditMode) setEditData(department);
-  }, [department, isEditMode]);
+  const handleClose = () => {
+    setIsEditMode(false);
+    setEditData(null);
+    onClose();
+  };
 
   const handleEditToggle = () => {
     if (isEditMode) {
@@ -75,7 +71,7 @@ export const DepartmentDetailModal: React.FC<DepartmentDetailModalProps> = ({
     }
   };
 
-  const handleInputChange = (field: keyof Departement, value: any) => {
+  const handleInputChange = (field: keyof Departement, value: string | number | null) => {
     setEditData((prev) => (prev ? { ...prev, [field]: value } : null));
   };
 
@@ -87,7 +83,7 @@ export const DepartmentDetailModal: React.FC<DepartmentDetailModalProps> = ({
   const displayData = isEditMode && editData ? editData : department;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Détails du Département">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Détails du Département">
       <div className="space-y-6">
         {isLoading && (
           <div className="flex justify-center items-center py-12">
@@ -109,23 +105,31 @@ export const DepartmentDetailModal: React.FC<DepartmentDetailModalProps> = ({
 
         {!isLoading && !isError && displayData && (
           <>
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-lg font-semibold">{displayData.nom}</h3>
-                {displayData.managerNom && (
-                  <p className="text-gray-600 text-sm mt-1">
-                    Manager: {displayData.managerNom}
-                  </p>
-                )}
+            {/* En-tête avec titre et badge */}
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <Building2 className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">{displayData.nom}</h3>
+                  {displayData.managerNom && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <User className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-600">Manager: </span>
+                      <span className="text-sm font-medium text-blue-600">{displayData.managerNom}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {canEdit && (
                 <button
                   onClick={handleEditToggle}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${
                     isEditMode
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
                   }`}
                 >
                   {isEditMode ? (
@@ -143,83 +147,123 @@ export const DepartmentDetailModal: React.FC<DepartmentDetailModalProps> = ({
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            {/* Carte d'informations principales */}
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 space-y-5">
+              {/* Nom du département */}
               {isEditMode && editData ? (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Nom</label>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <Building2 className="w-4 h-4" />
+                    Nom du département
+                  </label>
                   <input
                     type="text"
                     value={editData.nom || ''}
                     onChange={(e) => handleInputChange('nom', e.target.value)}
                     placeholder="Nom du département"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all mt-1"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
                   />
                 </div>
               ) : (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Nom</label>
-                  <p className="text-gray-900 mt-1">{displayData.nom}</p>
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    <Building2 className="w-3.5 h-3.5" />
+                    Nom du département
+                  </label>
+                  <p className="text-gray-900 font-medium text-lg">{displayData.nom}</p>
                 </div>
               )}
 
+              {/* Description */}
               {isEditMode && editData ? (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Description</label>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FileText className="w-4 h-4" />
+                    Description
+                  </label>
                   <textarea
                     value={editData.description || ''}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                     placeholder="Description du département"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all mt-1"
-                    rows={3}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm resize-none"
+                    rows={4}
                   />
                 </div>
               ) : (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Description</label>
-                  <p className="text-gray-900 mt-1">{displayData.description || '-'}</p>
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    <FileText className="w-3.5 h-3.5" />
+                    Description
+                  </label>
+                  <p className="text-gray-700 leading-relaxed">{displayData.description || <span className="text-gray-400 italic">Aucune description</span>}</p>
                 </div>
               )}
 
+              {/* Manager */}
               {isEditMode && editData ? (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Manager ID</label>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <User className="w-4 h-4" />
+                    Manager ID
+                  </label>
                   <input
                     type="number"
                     value={editData.managerId?.toString() || ''}
                     onChange={(e) =>
                       handleInputChange(
                         'managerId',
-                        e.target.value ? parseInt(e.target.value, 10) : undefined
+                        e.target.value ? parseInt(e.target.value, 10) : null
                       )
                     }
                     placeholder="ID du manager"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all mt-1"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
                   />
                 </div>
               ) : (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Manager</label>
-                  <p className="text-gray-900 mt-1">{displayData.managerNom || '-'}</p>
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    <User className="w-3.5 h-3.5" />
+                    Manager
+                  </label>
+                  <p className="text-gray-900 font-medium">{displayData.managerNom || <span className="text-gray-400 italic">Non assigné</span>}</p>
+                </div>
+              )}
+
+              {/* Date de création - Affichage uniquement en mode lecture */}
+              {!isEditMode && displayData.createdAt && (
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Date de création
+                  </label>
+                  <p className="text-gray-900 font-medium">
+                    {new Date(displayData.createdAt).toLocaleDateString('fr-FR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
                 </div>
               )}
             </div>
 
+            {/* Bouton d'enregistrement en mode édition */}
             {isEditMode && (
-              <div className="flex gap-3 pt-6 border-t">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={handleSave}
                   disabled={updateMutation.isPending}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg shadow-blue-200"
                 >
                   {updateMutation.isPending ? (
                     <>
-                      <Loader className="w-4 h-4 animate-spin" />
+                      <Loader className="w-5 h-5 animate-spin" />
                       Enregistrement...
                     </>
                   ) : (
                     <>
-                      <Save className="w-4 h-4" />
-                      Enregistrer
+                      <Save className="w-5 h-5" />
+                      Enregistrer les modifications
                     </>
                   )}
                 </button>

@@ -1,7 +1,6 @@
 package com.fares.gestionrh.service;
 
 import com.fares.gestionrh.dto.notification.NotificationDTO;
-import com.fares.gestionrh.entity.Conge;
 import com.fares.gestionrh.entity.Notification;
 import com.fares.gestionrh.entity.Utilisateur;
 import com.fares.gestionrh.event.LeaveEvent;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 

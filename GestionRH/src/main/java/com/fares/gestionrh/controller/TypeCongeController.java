@@ -22,6 +22,16 @@ public class TypeCongeController {
         return typeCongeService.getAllTypes();
     }
 
+    @GetMapping("/all")
+    public List<TypeConge> getAllIncludingInactive() {
+        return typeCongeService.getAllTypesIncludingInactive();
+    }
+
+    @GetMapping("/inactive")
+    public List<TypeConge> getInactive() {
+        return typeCongeService.getInactiveTypes();
+    }
+
     @PostMapping
     public TypeConge create(@RequestBody TypeConge typeConge) {
         return typeCongeService.createType(typeConge);
@@ -36,5 +46,10 @@ public class TypeCongeController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         typeCongeService.deleteType(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/reactivate")
+    public TypeConge reactivate(@PathVariable Long id) {
+        return typeCongeService.reactivateType(id);
     }
 }

@@ -2,8 +2,6 @@ package com.fares.gestionrh.service;
 
 import com.fares.gestionrh.dto.utilisateur.CreateUtilisateurRequest;
 import com.fares.gestionrh.dto.utilisateur.UtilisateurDTO;
-import com.fares.gestionrh.entity.Departement;
-import com.fares.gestionrh.entity.Poste;
 import com.fares.gestionrh.entity.Role;
 import com.fares.gestionrh.entity.Utilisateur;
 import com.fares.gestionrh.exception.ConflictException;
@@ -27,9 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;

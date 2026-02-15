@@ -10,6 +10,7 @@ interface ModalProps {
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
     const previousActiveElementRef = useRef<HTMLElement | null>(null);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
+    const initialOpenRef = useRef(false);
 
     // Handle Escape key and focus management
     useEffect(() => {
@@ -18,16 +19,20 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
             if (previousActiveElementRef.current && previousActiveElementRef.current instanceof HTMLElement) {
                 previousActiveElementRef.current.focus();
             }
+            initialOpenRef.current = false;
             return;
         }
 
         // Store the element that had focus before modal opened
         previousActiveElementRef.current = document.activeElement as HTMLElement;
 
-        // Move focus to close button when modal opens
-        setTimeout(() => {
-            closeButtonRef.current?.focus();
-        }, 0);
+        // Move focus to close button ONLY on first open
+        if (!initialOpenRef.current) {
+            initialOpenRef.current = true;
+            setTimeout(() => {
+                closeButtonRef.current?.focus();
+            }, 0);
+        }
 
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {

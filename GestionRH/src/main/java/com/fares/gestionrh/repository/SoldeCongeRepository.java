@@ -32,4 +32,6 @@ public interface SoldeCongeRepository extends JpaRepository<SoldeConge, Long> {
             @Param("utilisateurId") Long utilisateurId,
             @Param("typeCongeId") Long typeCongeId,
             @Param("annee") Integer annee);
+
+    long countByTypeConge(TypeConge typeConge);
 }

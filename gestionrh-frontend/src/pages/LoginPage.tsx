@@ -6,6 +6,10 @@ import * as z from 'zod'
 import { useAuthStore } from '../store'
 import type { LoginRequest } from '../types'
 
+interface LocationState {
+  from?: string
+}
+
 const loginSchema = z.object({
   email: z
     .string()
@@ -42,7 +46,7 @@ export const LoginPage: React.FC = () => {
           const { isAuthenticated, user } = useAuthStore.getState()
           if (isAuthenticated && user) {
             console.log('[LoginPage] Auth synced, navigating to /dashboard', { isAuthenticated, user })
-            const to = (location.state as any)?.from || '/dashboard'
+            const to = (location.state as LocationState | null)?.from || '/dashboard'
             navigate(to, { replace: true })
             return
           }
@@ -148,19 +152,6 @@ export const LoginPage: React.FC = () => {
             >
               S'inscrire
             </Link>
-          </p>
-        </div>
-
-        {/* Test Credentials */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-md border border-blue-200">
-          <p className="text-xs font-semibold text-blue-900 mb-2">
-            Identifiants de test:
-          </p>
-          <p className="text-xs text-blue-800">
-            Email: <code className="bg-white px-1">demo@example.com</code>
-          </p>
-          <p className="text-xs text-blue-800">
-            Mot de passe: <code className="bg-white px-1">Passw0rd!</code>
           </p>
         </div>
       </div>

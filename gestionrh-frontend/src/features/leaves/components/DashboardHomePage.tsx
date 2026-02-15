@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/auth';
 
 export const DashboardHomePage = () => {
     const { user } = useAuthStore();
+    const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('RH');
     const displayName = [user?.prenom, user?.nom].filter(Boolean).join(' ').trim() || 'Utilisateur';
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -179,6 +180,14 @@ export const DashboardHomePage = () => {
                             <p className="text-sm text-slate-500 font-medium">{pendingLeaves.length} demande{pendingLeaves.length > 1 ? 's' : ''} à traiter</p>
                         </div>
                     </div>
+
+                    {isAdmin && (
+                        <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-4 mb-4">
+                            <p className="text-sm text-blue-800 font-medium">
+                                ✓ Vous pouvez approuver ou rejeter les demandes dans la page de validation
+                            </p>
+                        </div>
+                    )}
 
                     <div className="space-y-3">
                         {pendingLeaves.slice(0, 3).map((leave: Conge) => (

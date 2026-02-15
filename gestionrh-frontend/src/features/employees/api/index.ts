@@ -31,6 +31,11 @@ export const deleteEmployee = async (id: number): Promise<void> => {
     await axiosClient.delete(`/employes/${id}`);
 };
 
+export const reactivateEmployee = async (id: number): Promise<Employee> => {
+    const response = await axiosClient.post(`/employes/${id}/reactivate`);
+    return response.data;
+};
+
 export const updateEmployee = async (id: number, data: Partial<CreateEmployeeRequest>): Promise<Employee> => {
     const response = await axiosClient.put(`/employes/${id}`, data);
     return response.data;

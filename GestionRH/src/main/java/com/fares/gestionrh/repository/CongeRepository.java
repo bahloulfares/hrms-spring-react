@@ -1,6 +1,7 @@
 package com.fares.gestionrh.repository;
 
 import com.fares.gestionrh.entity.Conge;
+import com.fares.gestionrh.entity.TypeConge;
 import com.fares.gestionrh.entity.Utilisateur;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -46,4 +47,6 @@ public interface CongeRepository extends JpaRepository<Conge, Long> {
         List<Conge> findBetweenDates(@Param("dateDebut") LocalDate dateDebut, @Param("dateFin") LocalDate dateFin);
 
         List<Conge> findByValidateur(Utilisateur validateur);
+
+        long countByType(TypeConge type);
 }

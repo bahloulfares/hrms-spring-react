@@ -2,16 +2,12 @@ package com.fares.gestionrh.controller;
 
 import com.fares.gestionrh.dto.notification.NotificationPreferencesDTO;
 import com.fares.gestionrh.service.NotificationPreferencesService;
-import com.fares.gestionrh.controller.NotificationPreferencesController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import com.fares.gestionrh.event.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import static org.hamcrest.Matchers.is;
 
 class NotificationPreferencesControllerTest {
 

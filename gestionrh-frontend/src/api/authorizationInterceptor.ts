@@ -18,14 +18,17 @@ export const addUnauthorizedInterceptor = (client: AxiosInstance) => {
       const requestUrl = error.config?.url || '';
 
       if (error.response?.status === 403) {
-        // Erreur d'autorisation
-        const message = (error.response?.data as any)?.message || 
+        // Erreur d'autorisation - redirection à la page unauthorized
+        const response = error.response?.data as { message?: string };
+        const message = response?.message || 
                        'Vous n\'avez pas les permissions pour effectuer cette action';
         
         toast.error(message);
         
-        // Optionnel: redirection vers unauthorized (à gérer au niveau du composant)
-        // window.location.href = '/unauthorized';
+        // Redirection vers la page unauthorized après un court délai
+        setTimeout(() => {
+          window.location.href = '/unauthorized';
+        }, 1000);
       } else if (error.response?.status === 401) {
         // Ignorer la restauration de session /auth/me pour éviter boucle
         if (requestUrl.includes('/auth/me')) {

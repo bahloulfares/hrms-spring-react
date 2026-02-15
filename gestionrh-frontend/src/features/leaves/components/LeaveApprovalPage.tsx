@@ -4,9 +4,12 @@ import { CheckCircle2, XCircle, Clock, Search, Filter } from 'lucide-react';
 import { useState } from 'react';
 import type { Conge } from '../types';
 import { useAuthCheck } from '@/hooks/useAuthCheck';
+import { useAuthStore } from '@/store/auth';
 
 export const LeaveApprovalPage = () => {
     const { isAuthorized } = useAuthCheck({ requiredRoles: ['ADMIN', 'RH', 'MANAGER'] });
+    const { user } = useAuthStore();
+    const canApprove = user?.roles?.includes('ADMIN') || user?.roles?.includes('RH');
     const queryClient = useQueryClient();
     const [filter, setFilter] = useState('');
 
@@ -107,22 +110,31 @@ export const LeaveApprovalPage = () => {
                             </div>
 
                             <div className="flex gap-2 w-full md:w-auto">
-                                <button
-                                    onClick={() => handleValidate(request.id, 'APPROUVE')}
-                                    disabled={validationMutation.isPending}
-                                    className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-sm disabled:bg-gray-300"
-                                >
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    Approuver
-                                </button>
-                                <button
-                                    onClick={() => handleValidate(request.id, 'REJETE')}
-                                    disabled={validationMutation.isPending}
-                                    className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg font-bold hover:bg-red-100 transition-colors border border-red-100 disabled:bg-gray-50 disabled:text-gray-300"
-                                >
-                                    <XCircle className="w-4 h-4" />
-                                    Rejeter
-                                </button>
+                                {canApprove && (
+                                    <button
+                                        onClick={() => handleValidate(request.id, 'APPROUVE')}
+                                        disabled={validationMutation.isPending}
+                                        className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-sm disabled:bg-gray-300"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        Approuver
+                                    </button>
+                                )}
+                                {canApprove && (
+                                    <button
+                                        onClick={() => handleValidate(request.id, 'REJETE')}
+                                        disabled={validationMutation.isPending}
+                                        className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg font-bold hover:bg-red-100 transition-colors border border-red-100 disabled:bg-gray-50 disabled:text-gray-300"
+                                    >
+                                        <XCircle className="w-4 h-4" />
+                                        Rejeter
+                                    </button>
+                                )}
+                                {!canApprove && (
+                                    <div className="text-sm text-gray-500 px-4 py-2">
+                                        Vous n'avez pas les droits pour approuver les demandes
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))

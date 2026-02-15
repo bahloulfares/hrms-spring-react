@@ -1,6 +1,8 @@
 package com.fares.gestionrh.security;
 
 import com.fares.gestionrh.entity.Role;
+import com.fares.gestionrh.entity.Utilisateur;
+import com.fares.gestionrh.repository.UtilisateurRepository;
 import com.fares.gestionrh.service.JWTService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 public class JWTFilter extends OncePerRequestFilter {
 
     private final JWTService jwtService;
+    private final UtilisateurRepository utilisateurRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -43,6 +46,16 @@ public class JWTFilter extends OncePerRequestFilter {
 
                 if (jwtService.validateToken(token)) {
                     String email = jwtService.getEmailFromToken(token);
+                    
+                    // ✅ Vérifier que l'utilisateur existe et est actif
+                    Utilisateur utilisateur = utilisateurRepository.findByEmail(email).orElse(null);
+                    if (utilisateur == null || !Boolean.TRUE.equals(utilisateur.getActif())) {
+                        // Utilisateur désactivé ou supprimé - rejeter l'authentification
+                        SecurityContextHolder.clearContext();
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                    
                     Set<Role> roles = jwtService.getRolesFromToken(token);
 
                     Set<SimpleGrantedAuthority> authorities = roles.stream()

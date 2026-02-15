@@ -113,6 +113,14 @@ axiosClient.interceptors.response.use(
         }
 
         // ========================================
+        // ERREUR 403 - FORBIDDEN (gérée aussi par authorizationInterceptor)
+        // ========================================
+        if (error.response?.status === 403) {
+            logger.debug('[API] ✗ 403 Accès Refusé');
+            return Promise.reject(error);
+        }
+
+        // ========================================
         // RETRY AUTOMATIQUE
         // ========================================
         if (isRetryableError(error) && retryCount < MAX_RETRIES) {

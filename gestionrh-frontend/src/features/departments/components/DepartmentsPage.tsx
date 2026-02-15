@@ -50,7 +50,7 @@ const DepartmentsPageComponent = () => {
                 queryClient.invalidateQueries({ queryKey: ['departements'] });
                 pagination.reset();
                 toast.success('Département supprimé avec succès');
-            } catch (err) {
+            } catch {
                 toast.error('Erreur lors de la suppression. Vérifiez si des employés y sont rattachés.');
             }
         }
@@ -97,10 +97,15 @@ const DepartmentsPageComponent = () => {
         }
     };
 
-    // ✅ Update pagination
+    // ✅ Update pagination (avec vérification pour éviter les cascades)
     useEffect(() => {
-        pagination.setTotal(filteredDepartements.length, Math.ceil(filteredDepartements.length / pagination.size));
-    }, [filteredDepartements.length, pagination]);
+        const newTotal = filteredDepartements.length;
+        const newPageCount = Math.ceil(newTotal / pagination.size);
+        // Seulement mettre à jour si les valeurs ont vraiment changé
+        if (pagination.totalElements !== newTotal || pagination.totalPages !== newPageCount) {
+            pagination.setTotal(newTotal, newPageCount);
+        }
+    }, [filteredDepartements.length, pagination.size, pagination.totalElements, pagination.totalPages, pagination]);
 
     // ✅ Paginated departments
     const paginatedDepartements = useMemo(() => {

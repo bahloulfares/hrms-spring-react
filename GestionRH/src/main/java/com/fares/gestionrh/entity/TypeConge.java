@@ -29,13 +29,13 @@ public class TypeConge {
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean compteWeekend = false;
+    private Boolean compteWeekend = false;
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean peutDeborderSurCP = false;
+    private Boolean peutDeborderSurCP = false;
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean actif = true;
+    private Boolean actif = true;
 }

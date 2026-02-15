@@ -23,7 +23,7 @@ const normalizeValue = (value: unknown): string | number => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'number') return value;
   if (value instanceof Date) return value.toLocaleString();
-  return String(value);
+  return String(value).replace(/\u202f|\u00a0/g, ' ');
 };
 
 export function exportToPdf<T>(options: ExportOptions<T>): void {

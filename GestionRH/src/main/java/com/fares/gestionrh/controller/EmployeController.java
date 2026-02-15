@@ -171,4 +171,25 @@ public class EmployeController {
         utilisateurService.deleteUtilisateur(id);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Réactive un employé inactif
+     * 
+     * @param id ID de l'employé à réactiver
+     * @return DTO de l'employé réactivé
+     */
+    @PostMapping("/{id}/reactivate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
+    @Operation(summary = "Réactiver un employé", description = "Réactive un employé désactivé")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Employé réactivé avec succès",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = UtilisateurDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Employé non trouvé"),
+            @ApiResponse(responseCode = "403", description = "Accès refusé")
+    })
+    public ResponseEntity<UtilisateurDTO> reactivateEmploye(
+            @PathVariable
+            @Parameter(description = "ID de l'employé à réactiver") Long id) {
+        return ResponseEntity.ok(utilisateurService.reactivateUtilisateur(id));
+    }
 }

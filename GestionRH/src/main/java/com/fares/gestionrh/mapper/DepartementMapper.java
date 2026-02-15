@@ -26,6 +26,7 @@ public class DepartementMapper {
                 .description(departement.getDescription())
                 .managerId(departement.getManager() != null ? departement.getManager().getId() : null)
                 .managerNom(departement.getManager() != null ? departement.getManager().getNomComplet() : null)
+            .createdAt(departement.getDateCreation())
                 .build();
     }
 

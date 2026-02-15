@@ -5,9 +5,9 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { createEmployee, updateEmployee } from '../api';
 import { getDepartements } from '../../departments/api';
 import { getPostesByDepartement } from '../../jobs/api';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface EmployeeFormProps {
@@ -19,6 +19,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialDa
     const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<CreateEmployeeRequest>();
     const queryClient = useQueryClient();
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedDepartementName = watch('departement');
 
     // Reset form when initialData changes
@@ -85,7 +86,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ onSuccess, initialDa
 
         if (initialData) {
             // For update, we might not send password if empty (logic needed in handleSubmit or specific handling)
-            if (!data.motDePasse) delete (payload as any).motDePasse;
+            if (!data.motDePasse) delete (payload as Record<string, unknown>).motDePasse;
             updateMutation.mutate({ id: initialData.id, data: payload });
         } else {
             createMutation.mutate(payload);

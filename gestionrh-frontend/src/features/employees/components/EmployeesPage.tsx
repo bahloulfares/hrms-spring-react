@@ -1,7 +1,7 @@
 import { useState, useMemo, memo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { getEmployees, deleteEmployee } from '../api';
+import { getEmployees, deleteEmployee, reactivateEmployee } from '../api';
 import { Modal } from '../../../components/common/Modal';
 import { EmployeeForm } from './EmployeeForm';
 import { EmployeeDetailModal } from './EmployeeDetailModal';
@@ -13,14 +13,17 @@ import { exportToExcel, exportToPdf } from '../../../utils/exportUtils';
 import type { Employee } from '../types';
 import {
     Search, Plus, Mail, Phone, Building2, Briefcase,
-    Edit3, Trash2, Filter, User, Eye, FileDown, FileSpreadsheet
+    Edit3, Filter, User, Eye, FileDown, FileSpreadsheet, RotateCcw, AlertCircle, Power
 } from 'lucide-react';
 import { useAuthCheck } from '@/hooks/useAuthCheck';
 import { useDataAccess } from '@/hooks/useAuthCheck';
+import { useAuthStore } from '@/store/auth';
 
 const EmployeesPageComponent = () => {
     const { isAuthorized } = useAuthCheck({ requiredRoles: ['ADMIN', 'RH', 'MANAGER'] });
     const { canViewAllEmails, canViewAllPhones, canManageRoles } = useDataAccess();
+    const { user } = useAuthStore();
+    const canEdit = user?.roles?.includes('ADMIN') || user?.roles?.includes('RH');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -57,10 +60,15 @@ const EmployeesPageComponent = () => {
         }).sort((a, b) => a.nom.localeCompare(b.nom));
     }, [employees, searchQuery, deptFilter, jobFilter]);
 
-    // ✅ Mettre à jour le total après filtrage
+    // ✅ Mettre à jour le total après filtrage (avec vérification pour éviter les cascades)
     useEffect(() => {
-        pagination.setTotal(filteredEmployees.length, Math.ceil(filteredEmployees.length / pagination.size));
-    }, [filteredEmployees.length, pagination.size]);
+        const newTotal = filteredEmployees.length;
+        const newPageCount = Math.ceil(newTotal / pagination.size);
+        // Seulement mettre à jour si les valeurs ont vraiment changé
+        if (pagination.totalElements !== newTotal || pagination.totalPages !== newPageCount) {
+            pagination.setTotal(newTotal, newPageCount);
+        }
+    }, [filteredEmployees.length, pagination.size, pagination.totalElements, pagination.totalPages, pagination]);
 
     // ✅ Récupérer les employés pour la page courante
     const paginatedEmployees = useMemo(() => {
@@ -86,15 +94,23 @@ const EmployeesPageComponent = () => {
         setIsDetailModalOpen(true);
     };
 
-    const handleDelete = async (id: number) => {
-        if (window.confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
+    const handleToggleStatus = async (employee: Employee) => {
+        const action = employee.actif ? 'désactiver' : 'réactiver';
+        
+        if (window.confirm(`Êtes-vous sûr de vouloir ${action} cet employé ?`)) {
             try {
-                await deleteEmployee(id);
+                if (employee.actif) {
+                    // Déactiver (soft delete)
+                    await deleteEmployee(employee.id);
+                    toast.success('Employé désactivé avec succès');
+                } else {
+                    // Réactiver
+                    await reactivateEmployee(employee.id);
+                    toast.success('Employé réactivé avec succès');
+                }
                 queryClient.invalidateQueries({ queryKey: ['employees'] });
-                pagination.reset(); // Réinitialiser pagination après suppression
-                toast.success('Employé supprimé avec succès');
-            } catch (err) {
-                toast.error('Erreur lors de la suppression');
+            } catch {
+                toast.error(`Erreur lors de la ${action} de l'employé`);
             }
         }
     };
@@ -152,7 +168,7 @@ const EmployeesPageComponent = () => {
     if (error) {
         return (
             <div className="bg-red-50 p-4 rounded-lg text-red-700 flex items-center gap-2">
-                <Trash2 className="w-5 h-5" />
+                <AlertCircle className="w-5 h-5" />
                 Erreur lors du chargement des employés
             </div>
         );
@@ -244,6 +260,7 @@ const EmployeesPageComponent = () => {
                                 <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Contact</th>
                                 <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Affectation</th>
                                 <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Accès</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-700 uppercase tracking-wider">Statut</th>
                                 <th className="px-6 py-5 text-right text-xs font-black text-slate-700 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -318,6 +335,18 @@ const EmployeesPageComponent = () => {
                                                 <span className="text-xs text-gray-400">Accès limité</span>
                                             )}
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold ${
+                                                    emp.actif 
+                                                        ? 'bg-green-100 text-green-800 border border-green-300' 
+                                                        : 'bg-red-100 text-red-800 border border-red-300'
+                                                }`}>
+                                                    <span className={`w-2 h-2 rounded-full mr-1.5 ${emp.actif ? 'bg-green-600' : 'bg-red-600'}`}></span>
+                                                    {emp.actif ? 'Actif' : 'Inactif'}
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">
                                                 <button
@@ -327,20 +356,32 @@ const EmployeesPageComponent = () => {
                                                 >
                                                     <Eye className="w-5 h-5" />
                                                 </button>
-                                                <button
-                                                    onClick={() => handleEdit(emp)}
-                                                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                                                    title="Modifier"
-                                                >
-                                                    <Edit3 className="w-5 h-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(emp.id)}
-                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                    title="Supprimer"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => handleEdit(emp)}
+                                                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                                                        title="Modifier"
+                                                    >
+                                                        <Edit3 className="w-5 h-5" />
+                                                    </button>
+                                                )}
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => handleToggleStatus(emp)}
+                                                        className={`p-2 rounded-lg transition-all ${
+                                                            emp.actif
+                                                                ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                                                : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                                                        }`}
+                                                        title={emp.actif ? 'Désactiver' : 'Réactiver'}
+                                                    >
+                                                        {emp.actif ? (
+                                                            <Power className="w-5 h-5" />
+                                                        ) : (
+                                                            <RotateCcw className="w-5 h-5" />
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -385,6 +426,7 @@ const EmployeesPageComponent = () => {
                 isOpen={isDetailModalOpen}
                 employeeId={selectedEmployeeId}
                 onClose={() => setIsDetailModalOpen(false)}
+                isReadOnly={!canEdit}
             />
         </div>
     );
